@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CoverageSession xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="0.0.0.0">
+  <Summary numSequencePoints="8" visitedSequencePoints="0" numBranchPoints="0" visitedBranchPoints="0" sequenceCoverage="0.0" branchCoverage="0.0" maxCyclomaticComplexity="0" minCyclomaticComplexity="0" maxCrapScore="0" minCrapScore="0" visitedClasses="0" numClasses="1" visitedMethods="0" numMethods="1" />
+  <Modules>
+    <Module>
+      <Summary numSequencePoints="8" visitedSequencePoints="0" numBranchPoints="0" visitedBranchPoints="0" sequenceCoverage="0.0" branchCoverage="0.0" maxCyclomaticComplexity="0" minCyclomaticComplexity="0" maxCrapScore="0" minCrapScore="0" visitedClasses="0" numClasses="1" visitedMethods="0" numMethods="1" />
+      <ModuleTime>0001-01-01T00:00:00</ModuleTime>
+      <ModuleName>Unity.XR.Hands.Samples.VisualizerSample</ModuleName>
+      <Files>
+        <File uid="17" fullPath="/Users/ruizhengu/Projects/XRIExample/Assets/Samples/XR Hands/1.5.0/HandVisualizer/Scripts/HandProcessor.cs" />
+        <File uid="18" fullPath="/Users/ruizhengu/Projects/XRIExample/Assets/Samples/XR Hands/1.5.0/HandVisualizer/Scripts/HandVisualizer.cs" />
+        <File uid="19" fullPath="/Users/ruizhengu/Projects/XRIExample/Assets/Samples/XR Hands/1.5.0/HandVisualizer/Scripts/JointVisualizer.cs" />
+      </Files>
+      <Classes>
+        <Class>
+          <Summary numSequencePoints="8" visitedSequencePoints="0" numBranchPoints="0" visitedBranchPoints="0" sequenceCoverage="0.0" branchCoverage="0.0" maxCyclomaticComplexity="0" minCyclomaticComplexity="0" maxCrapScore="0" minCrapScore="0" visitedClasses="0" numClasses="1" visitedMethods="0" numMethods="1" />
+          <FullName>UnityEngine.XR.Hands.Samples.VisualizerSample.HandVisualizer/HandGameObjects</FullName>
+          <Methods>
+            <Method visited="false" cyclomaticComplexity="0" nPathComplexity="0" sequenceCoverage="0.0" branchCoverage="0" crapScore="0" isConstructor="false" isStatic="true" isGetter="false" isSetter="false">
+              <Summary numSequencePoints="8" visitedSequencePoints="0" numBranchPoints="0" visitedBranchPoints="0" sequenceCoverage="0.0" branchCoverage="0" maxCyclomaticComplexity="0" minCyclomaticComplexity="0" maxCrapScore="0" minCrapScore="0" visitedClasses="0" numClasses="0" visitedMethods="0" numMethods="1" />
+              <MetadataToken>100663338</MetadataToken>
+              <Name>static System.Void UnityEngine.XR.Hands.Samples.VisualizerSample.HandVisualizer/HandGameObjects::ToggleRenderers[TRenderer](System.Boolean, UnityEngine.Transform)</Name>
+              <FileRef uid="18" />
+              <SequencePoints>
+                <SequencePoint vc="0" uspid="8773" ordinal="0" offset="0" sl="570" sc="0" el="570" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8774" ordinal="0" offset="1" sl="571" sc="0" el="571" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8775" ordinal="0" offset="13" sl="572" sc="0" el="572" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8776" ordinal="0" offset="26" sl="574" sc="0" el="574" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8777" ordinal="0" offset="30" sl="575" sc="0" el="575" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8778" ordinal="0" offset="44" sl="574" sc="0" el="574" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8779" ordinal="0" offset="48" sl="574" sc="0" el="574" ec="0" bec="0" bev="0" fileid="18" />
+                <SequencePoint vc="0" uspid="8780" ordinal="0" offset="61" sl="576" sc="0" el="576" ec="0" bec="0" bev="0" fileid="18" />
+              </SequencePoints>
+              <BranchPoints />
+            </Method>
+          </Methods>
+        </Class>
+      </Classes>
+    </Module>
+  </Modules>
+</CoverageSession>

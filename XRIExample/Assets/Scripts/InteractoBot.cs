@@ -1,33 +1,78 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Layouts;
+using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.Utilities;
 
 public class InteractoBot : MonoBehaviour
 {
-    protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>(); 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
+    public XRDeviceControllerControls xRDeviceControllerControls;
+    public InputDevice xrControllerDevice;
+
+    private void Awake()
+    {
+    }
+
     void Start()
     {
-        
+        xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
+        if (xrControllerDevice == null)
+        {
+            Debug.LogError("No XR controller device found");
+        }
 
     }
 
-    // Update is called once per frame
     void Update()
     {
+        if (Keyboard.current.gKey.wasPressedThisFrame)
+        {
+            SetGripValue(1.0f);
+        }
+    }
+
+    public void SetGripValue(float value)
+    {
+        AxisControl gripControl = xrControllerDevice.TryGetChildControl<AxisControl>("grip");
+        if (gripControl == null)
+        {
+            Debug.LogError("Grip Control not found");
+        }
+        else
+        {
+            Debug.Log($"Setting grip value to {value}");
+            InputSystem.QueueDeltaStateEvent(gripControl, value);
+            InputSystem.Update();
+        }
+    }
+
+    void getPlayerTransform()
+    {
         GameObject mainCamera = GameObject.FindWithTag("MainCamera");
-        Debug.Log("mainCamera: (" + mainCamera.transform.position + ") (" + mainCamera.transform.rotation + ")");
+        // Debug.Log("mainCamera: (" + mainCamera.transform.position + ") (" + mainCamera.transform.rotation + ")");
         GameObject leftController = GameObject.FindWithTag("LeftController");
-        if (leftController) {
-            Debug.Log("leftController: (" + leftController.transform.position + ") (" + leftController.transform.rotation + ")");
-        } else {
-            Debug.Log("leftController not found");
+        if (leftController)
+        {
+            // Debug.Log("leftController: (" + leftController.transform.position + ") (" + leftController.transform.rotation + ")");
+        }
+        else
+        {
+            // Debug.Log("leftController not found");
         }
         GameObject rightController = GameObject.FindWithTag("RightController");
-        if (rightController) {
-            Debug.Log("rightController: (" + rightController.transform.position + ") (" + rightController.transform.rotation + ")");
-        } else {
-            Debug.Log("rightController not found");
+        if (rightController)
+        {
+            // Debug.Log("rightController: (" + rightController.transform.position + ") (" + rightController.transform.rotation + ")");
         }
-
+        else
+        {
+            // Debug.Log("rightController not found");
+        }
     }
 }

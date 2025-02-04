@@ -14,9 +14,11 @@ public class InteractoBot : MonoBehaviour
     protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
     public XRDeviceControllerControls xRDeviceControllerControls;
     public InputDevice xrControllerDevice;
+    public SceneMovement sceneMovement;
 
     private void Awake()
     {
+
     }
 
     void Start()
@@ -26,6 +28,7 @@ public class InteractoBot : MonoBehaviour
         {
             Debug.LogError("No XR controller device found");
         }
+        // sceneMovement = new SceneMovement();
 
     }
 
@@ -35,6 +38,7 @@ public class InteractoBot : MonoBehaviour
         {
             SetGripValue(1.0f);
         }
+        // sceneMovement.Moving();
     }
 
     public void SetGripValue(float value)

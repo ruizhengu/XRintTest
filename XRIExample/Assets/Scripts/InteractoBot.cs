@@ -14,11 +14,12 @@ public class InteractoBot : MonoBehaviour
     protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
     public XRDeviceControllerControls xRDeviceControllerControls;
     public InputDevice xrControllerDevice;
-    public SceneMovement sceneMovement;
+    public SceneExplore explore;
+    protected bool navStart;
 
-    private void Awake()
+    void Awake()
     {
-
+        navStart = true;
     }
 
     void Start()

@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-public class SceneMovement : MonoBehaviour
+public class SceneExplore : MonoBehaviour
 {
     protected float moveStep = 1f;
     protected Vector3 moveUpperBound = new Vector3(7f, 4.4f, 11f);

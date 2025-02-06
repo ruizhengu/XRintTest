@@ -1,88 +1,68 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-public class SceneExplore : MonoBehaviour
+public class SceneExplore
 {
-    protected float moveStep = 1f;
-    protected Vector3 moveUpperBound = new Vector3(7f, 4.4f, 11f);
-    protected Vector3 moveLowerBound = new Vector3(-14f, 4.3f, -1f);
-    protected Vector3[] moveOpts = new Vector3[6];
-    protected List<Vector3> moves = new List<Vector3>();
-    Vector3 destPos;
-    bool move;
-    void Start()
+    private float moveStep = 1f;
+    private Vector3 botPos;
+    private Vector3 destPos;
+    private Vector3 moveUpperBound = new Vector3(7f, 4.4f, 11f);
+    private Vector3 moveLowerBound = new Vector3(-14f, 4.3f, -1f);
+
+    private Vector3[] directions = {
+        new Vector3(1f, 0f, 0f),
+        new Vector3(-1f, 0f, 0f),
+        new Vector3(0f, 1f, 0f),
+        new Vector3(0f, -1f, 0f),
+        new Vector3(0f, 0f, 1f),
+        new Vector3(0f, 0f, -1f)
+    };
+
+    public SceneExplore(Vector3 initPos)
     {
-        move = true;
-        moveOpts[0] = new Vector3(1f, 0f, 0f);
-        moveOpts[1] = new Vector3(-1f, 0f, 0f);
-        moveOpts[2] = new Vector3(0f, 1f, 0f);
-        moveOpts[3] = new Vector3(0f, -1f, 0f);
-        moveOpts[4] = new Vector3(0f, 0f, 1f);
-        moveOpts[5] = new Vector3(0f, 0f, -1f);
-
-        destPos = transform.position;
-
+        botPos = initPos;
+        destPos = initPos;
     }
 
-    void Update()
+    public Vector3 RandomExploration()
     {
-        transform.position = Vector3.MoveTowards(transform.position, destPos, moveStep * 0.02f);
-        if (transform.position == destPos)
+        botPos = Vector3.MoveTowards(
+            botPos,
+            destPos,
+            moveStep * Time.deltaTime
+        );
+        // Update destination when reaching target
+        if (botPos == destPos)
         {
-            destPos = Move();
+            destPos = GetNewDestination();
         }
+        return botPos;
     }
 
-    public void Moving()
+    private bool IsMoveValid(Vector3 position, Vector3 direction)
     {
-        transform.position = Vector3.MoveTowards(transform.position, destPos, moveStep * 0.02f);
-        if (transform.position == destPos)
-        {
-            destPos = Move();
-        }
+        return (direction.x == 0 || position.x + direction.x * moveStep >= moveLowerBound.x && position.x + direction.x * moveStep <= moveUpperBound.x) &&
+               (direction.y == 0 || position.y + direction.y * moveStep >= moveLowerBound.y && position.y + direction.y * moveStep <= moveUpperBound.y) &&
+               (direction.z == 0 || position.z + direction.z * moveStep >= moveLowerBound.z && position.z + direction.z * moveStep <= moveUpperBound.z) &&
+               !Physics.Raycast(position, direction, moveStep);
     }
 
-    public bool Movable(Vector3 position, int flag)
+    private Vector3 GetNewDestination()
     {
-        switch (flag)
+        var validMoves = new List<Vector3>();
+        for (int i = 0; i < directions.Length; i++)
         {
-            case 0: return position.x + moveStep < moveUpperBound.x && !Physics.Raycast(position, Vector3.right, moveStep);
-            case 1: return position.x - moveStep > moveLowerBound.x && !Physics.Raycast(position, Vector3.left, moveStep);
-            case 2: return position.y + moveStep < moveUpperBound.y && !Physics.Raycast(position, Vector3.up, moveStep);
-            case 3: return position.y - moveStep > moveLowerBound.y && !Physics.Raycast(position, Vector3.down, moveStep);
-            case 4: return position.z + moveStep < moveUpperBound.z && !Physics.Raycast(position, Vector3.forward, moveStep);
-            case 5: return position.z - moveStep > moveLowerBound.z && !Physics.Raycast(position, Vector3.back, moveStep);
-            default: return false;
-        }
-    }
-
-    public virtual Vector3 Move()
-    {
-        if (move)
-        {
-            UpdateMoves();
-            System.Random rnd = new System.Random();
-            int n = rnd.Next(0, moves.Count);
-            Debug.Log(n);
-            Debug.Log(moves);
-            return transform.position + moves[n] * moveStep;
-        }
-        else
-        {
-            return transform.position;
-        }
-    }
-
-    public void UpdateMoves()
-    {
-        moves.Clear();
-        Vector3 pos = transform.position;
-        for (int i = 0; i < 6; i++)
-        {
-            if (Movable(pos, i))
+            if (IsMoveValid(destPos, directions[i]))
             {
-                moves.Add(moveOpts[i]);
+                validMoves.Add(directions[i]);
             }
         }
+        if (validMoves.Count > 0)
+        {
+            return destPos + validMoves[Random.Range(0, validMoves.Count)] * moveStep;
+        }
+        return destPos;
     }
 }
+
+

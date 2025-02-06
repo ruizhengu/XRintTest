@@ -11,15 +11,17 @@ using UnityEngine.InputSystem.Utilities;
 
 public class InteractoBot : MonoBehaviour
 {
+    // Control/interaction related
     protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
-    public XRDeviceControllerControls xRDeviceControllerControls;
+    // public XRDeviceControllerControls xRDeviceControllerControls;
     public InputDevice xrControllerDevice;
-    public SceneExplore explore;
+    // Exploration related
+    public SceneExplore explorer;
     protected bool navStart;
 
     void Awake()
     {
-        navStart = true;
+        explorer = new SceneExplore(transform.position);
     }
 
     void Start()
@@ -29,7 +31,6 @@ public class InteractoBot : MonoBehaviour
         {
             Debug.LogError("No XR controller device found");
         }
-        // sceneMovement = new SceneMovement();
 
     }
 
@@ -39,7 +40,7 @@ public class InteractoBot : MonoBehaviour
         {
             SetGripValue(1.0f);
         }
-        // sceneMovement.Moving();
+        transform.position = explorer.RandomExploration();
     }
 
     public void SetGripValue(float value)

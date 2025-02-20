@@ -45,7 +45,12 @@ public class SceneExplore
 
     public Vector3 GreedyExploration(GameObject go)
     {
-        destPos = go.transform.position;
+        destPos = new Vector3(
+            go.transform.position.x,
+            botPos.y,
+            go.transform.position.z
+        );
+        // TODO add an offset - move to in front of the target
         Debug.Log(go.name + ": " + destPos);
         botPos = Vector3.MoveTowards(
             botPos,

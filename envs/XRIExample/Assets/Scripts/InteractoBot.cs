@@ -17,16 +17,19 @@ public class InteractoBot : MonoBehaviour
     public InputDevice xrControllerDevice;
     // Exploration related
     public SceneExplore explorer;
+    public InteractableIdentification interactableIdentification;
     protected bool navStart;
 
     void Awake()
     {
         explorer = new SceneExplore(transform.position);
+        interactableIdentification = new InteractableIdentification();
     }
 
     void Start()
     {
         xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
+        interactableIdentification.IdentifyInteraction();
         if (xrControllerDevice == null)
         {
             Debug.LogError("No XR controller device found");

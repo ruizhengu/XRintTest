@@ -12,13 +12,15 @@ using UnityEngine.InputSystem.Utilities;
 public class InteractoBot : MonoBehaviour
 {
     // Control/interaction related
-    protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
+    // protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
     // public XRDeviceControllerControls xRDeviceControllerControls;
     public InputDevice xrControllerDevice;
     // Exploration related
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
-    protected bool navStart;
+    public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables;
+    // protected bool navStart;
+
 
     void Awake()
     {
@@ -29,7 +31,9 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
-        interactableIdentification.IdentifyInteraction();
+        // interactableIdentification.IdentifyInteraction();
+        interactables = interactableIdentification.getInteractables();
+        Debug.Log(interactables);
         if (xrControllerDevice == null)
         {
             Debug.LogError("No XR controller device found");

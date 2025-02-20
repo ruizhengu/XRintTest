@@ -8,10 +8,11 @@ using System.Runtime.InteropServices;
 
 public class InteractableIdentification
 {
-  protected static Dictionary<GameObject, ControlInfo> controls = new Dictionary<GameObject, ControlInfo>();
+  // protected static Dictionary<GameObject, ControlInfo> controls = new Dictionary<GameObject, ControlInfo>();
+  protected static Dictionary<GameObject, InteractableInfo> interactables = new Dictionary<GameObject, InteractableInfo>();
   protected static GameObject triggered;
 
-  public void IdentifyInteraction()
+  public InteractableIdentification()
   {
     GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
     foreach (GameObject go in gos)
@@ -21,40 +22,62 @@ public class InteractableIdentification
     }
   }
 
+  // public Dictionary<GameObject, ControlInfo> getControls()
+  // {
+  //   return controls;
+  // }
+
+  public Dictionary<GameObject, InteractableInfo> getInteractables()
+  {
+    return interactables;
+  }
+
+
+  // protected void IdentifyInteraction()
+  // {
+  //   GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+  //   foreach (GameObject go in gos)
+  //   {
+  //     FetchControl(go);
+  //     FetchInteractable(go);
+  //   }
+  // }
+
   protected void FetchControl(GameObject go)
   {
     EventTrigger r = go.GetComponent<EventTrigger>();
-    if (r != null && !controls.ContainsKey(go))
+    if (r != null && !interactables.ContainsKey(go))
     {
-      controls[go] = new ControlInfo(go);
       Debug.Log("Found Triggerable: " + go.name);
-      EventTrigger.Entry entry = new EventTrigger.Entry();
-      entry.eventID = EventTriggerType.PointerClick;
-      entry.callback.AddListener((eventData) => { UpdateTrigger(); });
-      r.triggers.Add(entry);
+      interactables[go] = new InteractableInfo(go);
+
+      // EventTrigger.Entry entry = new EventTrigger.Entry();
+      // entry.eventID = EventTriggerType.PointerClick;
+      // entry.callback.AddListener((eventData) => { UpdateTrigger(); });
+      // r.triggers.Add(entry);
     }
   }
 
   protected void FetchInteractable(GameObject go)
   {
     UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable xrInteractable = go.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
-    // if (xrInteractable != null && !controls.ContainsKey(go))
-    if (xrInteractable != null)
+    if (xrInteractable != null && !interactables.ContainsKey(go))
     {
       Debug.Log("Found Interactable: " + go.name);
+      interactables[go] = new InteractableInfo(go);
     }
   }
 
   public static void UpdateTrigger()
   {
-    if (controls.ContainsKey(triggered))
-    {
-      Debug.Log("Triggered Recorded:" + controls[triggered]);
-      controls[triggered].SetTrigger();
-    }
+    // if (controls.ContainsKey(triggered))
+    // {
+    //   Debug.Log("Triggered Recorded:" + controls[triggered]);
+    //   controls[triggered].SetTrigger();
+    // }
   }
 
-  protected class ControlInfo
+  public class ControlInfo
   {
     GameObject control;
     int triggered;
@@ -74,6 +97,17 @@ public class InteractableIdentification
     public void SetTrigger()
     {
       this.triggered = this.triggered + 1;
+    }
+  }
+
+  public class InteractableInfo
+  {
+    GameObject interactable;
+    bool interactFlag;
+    public InteractableInfo(GameObject go)
+    {
+      this.interactable = go;
+      this.interactFlag = false;
     }
   }
 }

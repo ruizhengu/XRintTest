@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 public class SceneExplore
@@ -17,6 +18,7 @@ public class SceneExplore
         new Vector3(0f, 0f, 1f),
         new Vector3(0f, 0f, -1f)
     };
+
 
     public SceneExplore(Vector3 initPos)
     {
@@ -37,6 +39,17 @@ public class SceneExplore
             destPos = GetNewDestination();
         }
         return botPos;
+    }
+
+    // public Vector3 GreedyExploration()
+    // {
+    //     GameObject closest = null;
+    //     float minDistance = Mathf.Infinity;
+    // }
+
+    public GameObject getCloestInteractable() {
+        GameObject closest = null;
+        float minDistance = Mathf.Infinity;
     }
 
     private bool IsMoveValid(Vector3 position, Vector3 direction)

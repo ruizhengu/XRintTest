@@ -48,7 +48,7 @@ public class InteractableIdentification
     EventTrigger r = go.GetComponent<EventTrigger>();
     if (r != null && !interactables.ContainsKey(go))
     {
-      Debug.Log("Found Triggerable: " + go.name);
+      // Debug.Log("Found Triggerable: " + go.name);
       interactables[go] = new InteractableInfo(go);
 
       // EventTrigger.Entry entry = new EventTrigger.Entry();
@@ -63,7 +63,7 @@ public class InteractableIdentification
     UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable xrInteractable = go.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
     if (xrInteractable != null && !interactables.ContainsKey(go))
     {
-      Debug.Log("Found Interactable: " + go.name);
+      // Debug.Log("Found Interactable: " + go.name);
       interactables[go] = new InteractableInfo(go);
     }
   }
@@ -108,6 +108,14 @@ public class InteractableIdentification
     {
       this.interactable = go;
       this.interactFlag = false;
+    }
+    public GameObject getObject()
+    {
+      return this.interactable;
+    }
+    public bool getInteractFlag()
+    {
+      return this.interactFlag;
     }
   }
 }

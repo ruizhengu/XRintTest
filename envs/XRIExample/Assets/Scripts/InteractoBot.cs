@@ -17,23 +17,23 @@ public class InteractoBot : MonoBehaviour
     public InputDevice xrControllerDevice;
     // Exploration related
     public SceneExplore explorer;
-    public InteractableIdentification interactableIdentification;
-    public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables;
+    // public InteractableIdentification interactableIdentification;
+    // public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables;
     // protected bool navStart;
 
 
     void Awake()
     {
         explorer = new SceneExplore(transform.position);
-        interactableIdentification = new InteractableIdentification();
+        // interactableIdentification = new InteractableIdentification();
     }
 
     void Start()
     {
         xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
         // interactableIdentification.IdentifyInteraction();
-        interactables = interactableIdentification.getInteractables();
-        Debug.Log(interactables);
+        // interactables = interactableIdentification.getInteractables();
+        // Debug.Log(interactables);
         if (xrControllerDevice == null)
         {
             Debug.LogError("No XR controller device found");
@@ -47,7 +47,16 @@ public class InteractoBot : MonoBehaviour
         {
             SetGripValue(1.0f);
         }
-        transform.position = explorer.RandomExploration();
+        // transform.position = explorer.RandomExploration();
+        GameObject targetInteractable = explorer.getCloestInteractable();
+        if (targetInteractable)
+        {
+            transform.position = explorer.GreedyExploration(targetInteractable);
+        }
+        else
+        {
+            transform.position = explorer.RandomExploration();
+        }
     }
 
     public void SetGripValue(float value)

@@ -12,28 +12,18 @@ using UnityEngine.InputSystem.Utilities;
 public class InteractoBot : MonoBehaviour
 {
     // Control/interaction related
-    // protected static Dictionary<GameObject, string> interactables = new Dictionary<GameObject, string>();
-    // public XRDeviceControllerControls xRDeviceControllerControls;
     public InputDevice xrControllerDevice;
     // Exploration related
     public SceneExplore explorer;
-    // public InteractableIdentification interactableIdentification;
-    // public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables;
-    // protected bool navStart;
-
 
     void Awake()
     {
-        explorer = new SceneExplore(transform.position);
-        // interactableIdentification = new InteractableIdentification();
+        explorer = new SceneExplore(transform);
     }
 
     void Start()
     {
         xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
-        // interactableIdentification.IdentifyInteraction();
-        // interactables = interactableIdentification.getInteractables();
-        // Debug.Log(interactables);
         if (xrControllerDevice == null)
         {
             Debug.LogError("No XR controller device found");
@@ -51,13 +41,33 @@ public class InteractoBot : MonoBehaviour
         GameObject targetInteractable = explorer.getCloestInteractable();
         if (targetInteractable)
         {
-            transform.position = explorer.GreedyExploration(targetInteractable);
+            var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+            transform.position = updatePos;
+            transform.rotation = updateRot;
+            // StartCoroutine(MoveAndRotate(updatePos, updateRot, 1.0f));
         }
         else
         {
             transform.position = explorer.RandomExploration();
         }
     }
+
+    // IEnumerator MoveAndRotate(Vector3 targetPos, Quaternion targetRot, float duration)
+    // {
+    //     Debug.Log(transform.position);
+    //     Vector3 startPos = transform.position;
+    //     Quaternion startRot = transform.rotation;
+    //     float elapsed = 0f;
+    //     while (elapsed < duration)
+    //     {
+    //         transform.position = Vector3.Lerp(startPos, targetPos, elapsed / duration);
+    //         transform.rotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration);
+    //         elapsed += Time.deltaTime;
+    //         yield return null;
+    //     }
+    //     transform.position = targetPos;
+    //     transform.rotation = targetRot;
+    // }
 
     public void SetGripValue(float value)
     {

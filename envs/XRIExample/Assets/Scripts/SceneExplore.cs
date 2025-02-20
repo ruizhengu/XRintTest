@@ -4,13 +4,18 @@ using System.Collections;
 using System.Collections.Generic;
 public class SceneExplore
 {
-    private float moveStep = 1f;
+    private float moveStep = 1.5f;
+    private float turnStep = 20f;
     private Vector3 botPos;
+    private Quaternion botRot;
     private Vector3 destPos;
+    private Quaternion destRot;
     private Vector3 moveUpperBound = new Vector3(7f, 4.4f, 11f);
     private Vector3 moveLowerBound = new Vector3(-14f, 4.3f, -1f);
+    private Vector3 turnUpperBound = new Vector3(60f, 180f, 0f);
+    private Vector3 turnLowerBound = new Vector3(-60f, -180f, 0f);
     public InteractableIdentification interactableIdentification;
-    private Vector3[] directions = {
+    private Vector3[] moveDirections = {
         new Vector3(1f, 0f, 0f),
         new Vector3(-1f, 0f, 0f),
         new Vector3(0f, 1f, 0f),
@@ -18,14 +23,24 @@ public class SceneExplore
         new Vector3(0f, 0f, 1f),
         new Vector3(0f, 0f, -1f)
     };
+    private Vector3[] turnDirections = {
+        new Vector3(1f, 0f, 0f),
+        new Vector3(-1f, 0f, 0f),
+        new Vector3(0f, 1f, 0f),
+        new Vector3(0f, -1f, 0f),
+        new Vector3(0f, 0f, 1f),
+        new Vector3(0f, 0f, -1f)
+    };
+    public float targetPositionOffset = 1.0f;
 
 
-    public SceneExplore(Vector3 initPos)
+    public SceneExplore(Transform initTrans)
     {
-        botPos = initPos;
-        destPos = initPos;
         interactableIdentification = new InteractableIdentification();
-
+        botPos = initTrans.position;
+        destPos = initTrans.position;
+        botRot = initTrans.rotation;
+        destRot = initTrans.rotation;
     }
 
     public Vector3 RandomExploration()
@@ -38,31 +53,53 @@ public class SceneExplore
         // Update destination when reaching target
         if (botPos == destPos)
         {
-            destPos = GetNewDestination();
+            destPos = GetRandomDestination();
         }
         return botPos;
     }
 
-    public Vector3 GreedyExploration(GameObject go)
+    public (Vector3 position, Quaternion rotation) GreedyExploration(GameObject go)
     {
+        Vector3 targetForward = go.transform.forward;
+        targetForward.y = 0f;
+        targetForward.Normalize();
         destPos = new Vector3(
-            go.transform.position.x,
+            go.transform.position.x - targetForward.x * targetPositionOffset,
             botPos.y,
-            go.transform.position.z
+            go.transform.position.z - targetForward.z * targetPositionOffset
         );
-        // TODO add an offset - move to in front of the target
-        Debug.Log(go.name + ": " + destPos);
+        destRot = go.transform.rotation;
+        // TODO consider occlusion
         botPos = Vector3.MoveTowards(
             botPos,
             destPos,
             moveStep * Time.deltaTime
+        );
+        botRot = Quaternion.RotateTowards(
+            botRot,
+            destRot,
+            turnStep * Time.deltaTime
         );
         // Update destination when reaching target
         // if (botPos == destPos)
         // {
         //     destPos = GetGODestination(go);
         // }
-        return botPos;
+        return (botPos, botRot);
+    }
+
+    IEnumerator MoveAndRotate(float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            botPos = Vector3.Lerp(botPos, destPos, elapsed / duration);
+            botRot = Quaternion.Slerp(botRot, destRot, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        botPos = destPos;
+        botRot = destRot;
     }
 
     public GameObject getCloestInteractable()
@@ -94,14 +131,21 @@ public class SceneExplore
                !Physics.Raycast(position, direction, moveStep);
     }
 
-    private Vector3 GetNewDestination()
+    private bool isTurnValid(Vector3 rotation, Vector3 direction)
+    {
+        return (direction.x == 0 || (rotation.x + direction.x * turnStep >= turnLowerBound.x && rotation.x + direction.x * turnStep <= turnUpperBound.x)) &&
+               (direction.y == 0 || (rotation.y + direction.y * turnStep >= turnLowerBound.y && rotation.y + direction.y * turnStep <= turnUpperBound.y)) &&
+               (direction.z == 0 || (rotation.z + direction.z * turnStep >= turnLowerBound.z && rotation.z + direction.z * turnStep <= turnUpperBound.z));
+    }
+
+    private Vector3 GetRandomDestination()
     {
         var validMoves = new List<Vector3>();
-        for (int i = 0; i < directions.Length; i++)
+        for (int i = 0; i < moveDirections.Length; i++)
         {
-            if (IsMoveValid(destPos, directions[i]))
+            if (IsMoveValid(destPos, moveDirections[i]))
             {
-                validMoves.Add(directions[i]);
+                validMoves.Add(moveDirections[i]);
             }
         }
         if (validMoves.Count > 0)
@@ -111,15 +155,16 @@ public class SceneExplore
         return destPos;
     }
 
+
     private Vector3 GetGODestination(GameObject go)
     {
         Vector3 targetPos = go.transform.position;
         var validMoves = new List<Vector3>();
-        for (int i = 0; i < directions.Length; i++)
+        for (int i = 0; i < moveDirections.Length; i++)
         {
-            if (IsMoveValid(destPos, directions[i]))
+            if (IsMoveValid(destPos, moveDirections[i]))
             {
-                validMoves.Add(directions[i]);
+                validMoves.Add(moveDirections[i]);
             }
         }
         Debug.Log("validMoves: " + validMoves);

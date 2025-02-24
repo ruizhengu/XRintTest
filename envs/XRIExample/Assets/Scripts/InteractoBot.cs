@@ -13,9 +13,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class InteractoBot : MonoBehaviour
 {
-    // Control/interaction related
     public InputDevice xrControllerDevice;
-    // Exploration related
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
 
@@ -42,18 +40,18 @@ public class InteractoBot : MonoBehaviour
         foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
         {
             var grabInteractable = entry.Key.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
-            if (grabInteractable != null)
+            var interactableType = entry.Value.GetObjectType();
+            if (grabInteractable != null && interactableType == "3d")
             {
                 grabInteractable.selectEntered.AddListener(OnSelectEntered);
                 grabInteractable.selectExited.AddListener(OnSelectExited);
             }
             var baseInteractable = entry.Key.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
-            if (baseInteractable != null)
+            if (baseInteractable != null && interactableType == "3d")
             {
                 baseInteractable.activated.AddListener(OnActivated);
                 baseInteractable.deactivated.AddListener(OnDeactivated);
             }
-
         }
     }
 
@@ -85,7 +83,7 @@ public class InteractoBot : MonoBehaviour
     {
         if (Keyboard.current.gKey.wasPressedThisFrame)
         {
-            SetGripValue(1.0f);
+            SetSelectValue(1.0f);
         }
         // transform.position = explorer.RandomExploration();
         // GameObject targetInteractable = explorer.getCloestInteractable();
@@ -102,24 +100,7 @@ public class InteractoBot : MonoBehaviour
         // }
     }
 
-    // IEnumerator MoveAndRotate(Vector3 targetPos, Quaternion targetRot, float duration)
-    // {
-    //     Debug.Log(transform.position);
-    //     Vector3 startPos = transform.position;
-    //     Quaternion startRot = transform.rotation;
-    //     float elapsed = 0f;
-    //     while (elapsed < duration)
-    //     {
-    //         transform.position = Vector3.Lerp(startPos, targetPos, elapsed / duration);
-    //         transform.rotation = Quaternion.Slerp(startRot, targetRot, elapsed / duration);
-    //         elapsed += Time.deltaTime;
-    //         yield return null;
-    //     }
-    //     transform.position = targetPos;
-    //     transform.rotation = targetRot;
-    // }
-
-    public void SetGripValue(float value)
+    public void SetSelectValue(float value)
     {
         AxisControl gripControl = xrControllerDevice.TryGetChildControl<AxisControl>("grip");
         if (gripControl == null)
@@ -132,6 +113,11 @@ public class InteractoBot : MonoBehaviour
             InputSystem.QueueDeltaStateEvent(gripControl, value);
             InputSystem.Update();
         }
+    }
+
+    public void SetActivateValue(float value)
+    {
+
     }
 
     void GetPlayerTransform()

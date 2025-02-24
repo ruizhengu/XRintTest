@@ -109,9 +109,9 @@ public class SceneExplore
         foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
         {
             var interactableInfo = entry.Value;
-            if (!interactableInfo.getInteractFlag())
+            if (!interactableInfo.GetInteractFlag())
             {
-                GameObject obj = interactableInfo.getObject();
+                GameObject obj = interactableInfo.GetObject();
                 float distance = Vector3.Distance(botPos, obj.transform.position);
                 if (distance < minDistance)
                 {

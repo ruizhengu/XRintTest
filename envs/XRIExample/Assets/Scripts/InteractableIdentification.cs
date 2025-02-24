@@ -18,7 +18,7 @@ public class InteractableIdentification
     foreach (GameObject go in gos)
     {
       // TODO seperate control and interacatable
-      // FetchControl(go);
+      FetchControl(go);
       FetchInteractable(go);
     }
   }
@@ -50,7 +50,7 @@ public class InteractableIdentification
     if (r != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Triggerable: " + go.name);
-      interactables[go] = new InteractableInfo(go);
+      interactables[go] = new InteractableInfo(go, "2d");
 
       // EventTrigger.Entry entry = new EventTrigger.Entry();
       // entry.eventID = EventTriggerType.PointerClick;
@@ -65,7 +65,7 @@ public class InteractableIdentification
     if (xrInteractable != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Interactable: " + go.name);
-      interactables[go] = new InteractableInfo(go);
+      interactables[go] = new InteractableInfo(go, "3d");
     }
   }
 
@@ -78,45 +78,52 @@ public class InteractableIdentification
     // }
   }
 
-  public class ControlInfo
-  {
-    GameObject control;
-    int triggered;
-    public ControlInfo(GameObject obj)
-    {
-      this.control = obj;
-      this.triggered = 0;
-    }
-    public GameObject getObject()
-    {
-      return this.control;
-    }
-    public int getTriggered()
-    {
-      return this.triggered;
-    }
-    public void SetTrigger()
-    {
-      this.triggered = this.triggered + 1;
-    }
-  }
+  // public class ControlInfo
+  // {
+  //   GameObject control;
+  //   int triggered;
+  //   public ControlInfo(GameObject obj)
+  //   {
+  //     this.control = obj;
+  //     this.triggered = 0;
+  //   }
+  //   public GameObject getObject()
+  //   {
+  //     return this.control;
+  //   }
+  //   public int getTriggered()
+  //   {
+  //     return this.triggered;
+  //   }
+  //   public void SetTrigger()
+  //   {
+  //     this.triggered = this.triggered + 1;
+  //   }
+  // }
 
   public class InteractableInfo
   {
     GameObject interactable;
     bool interactFlag;
-    public InteractableInfo(GameObject go)
+    String type;
+    public InteractableInfo(GameObject go, String type)
     {
       this.interactable = go;
+      this.type = type;
       this.interactFlag = false;
     }
-    public GameObject getObject()
+    public GameObject GetObject()
     {
       return this.interactable;
     }
-    public bool getInteractFlag()
+    public bool GetInteractFlag()
     {
       return this.interactFlag;
+    }
+
+    public String GetObjectType()
+    {
+      return this.type;
     }
   }
 }

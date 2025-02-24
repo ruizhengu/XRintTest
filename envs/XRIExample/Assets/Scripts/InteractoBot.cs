@@ -5,22 +5,17 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
-using UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation;
 
 public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
-    public XRController xrController;
-    public InputDevice xrControllerDevice;
-    public ButtonControl selectControl;
-    public AxisControl activateControl;
 
     void Awake()
     {
-        // xrController = new XRController();
         explorer = new SceneExplore(transform);
         interactableIdentification = new InteractableIdentification();
     }
@@ -28,27 +23,23 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         // var interactables = interactableIdentification.getInteractables();
-        // xrController.ResigterControlers();
         ResigterListener();
-        // xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
-        // if (xrControllerDevice == null)
-        // {
-        //     Debug.LogError("No XR controller device found");
-        // }
-        // selectControl = xrControllerDevice.TryGetChildControl<ButtonControl>("Grip");
-        // activateControl = xrControllerDevice.TryGetChildControl<AxisControl>("trigger");
     }
 
     void Update()
     {
+
+        // transform.position = explorer.RandomExploration();
+        // SetSelectValue(1.0f);
+        // SetActivateValue(1.0f);
+
         if (Keyboard.current.oKey.wasPressedThisFrame)
         {
-            // xrController.SetSelectValue(1.0f);
-            SetSelectValue(1.0f);
+            Utils.StartSelect();
         }
         if (Keyboard.current.pKey.wasPressedThisFrame)
         {
-            // xrController.SetActivateValue(1.0f);
+            StartCoroutine(ActivateAndRelease(0.5f));
         }
         // transform.position = explorer.RandomExploration();
         // GameObject targetInteractable = explorer.getCloestInteractable();
@@ -65,24 +56,25 @@ public class InteractoBot : MonoBehaviour
         // }
     }
 
-    public void SetSelectValue(float value)
+    IEnumerator ActivateAndRelease(float duration)
     {
-        // if (selectControl == null)
-        // {
-        //     Debug.LogError("Select Control not found");
-        // }
-        // else
-        // {
-        //     // Debug.Log($"Setting select/grip value to {value}");
-        //     XRSimulatedControllerState xrLeft = new XRSimulatedControllerState();
-        //     xrLeft.grip = value;
-        //     xrLeft.WithButton(ControllerButton.GripButton, true);
-
-        //     InputSystem.QueueDeltaStateEvent(selectControl, xrLeft);
-        //     InputSystem.Update();
-        // }
-
+        var device = InputSystem.GetDevice<Mouse>();
+        InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
+        yield return new WaitForSeconds(duration);
+        InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left, false));
     }
+
+    // public void SetSelectValue(float value)
+    // {
+    //     var device = InputSystem.GetDevice<Keyboard>();
+    //     InputSystem.QueueStateEvent(device, new KeyboardState(Key.G));
+    // }
+
+    // public void SetActivateValue(float value)
+    // {
+    //     var device = InputSystem.GetDevice<Mouse>();
+    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
+    // }
 
     public GameObject GetCloestInteractable()
     {

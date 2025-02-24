@@ -14,7 +14,7 @@ public class SceneExplore
     private Vector3 moveLowerBound = new Vector3(-14f, 4.3f, -1f);
     private Vector3 turnUpperBound = new Vector3(60f, 180f, 0f);
     private Vector3 turnLowerBound = new Vector3(-60f, -180f, 0f);
-    public InteractableIdentification interactableIdentification;
+    // public InteractableIdentification interactableIdentification;
     private Vector3[] moveDirections = {
         new Vector3(1f, 0f, 0f),
         new Vector3(-1f, 0f, 0f),
@@ -36,7 +36,7 @@ public class SceneExplore
 
     public SceneExplore(Transform initTrans)
     {
-        interactableIdentification = new InteractableIdentification();
+        // interactableIdentification = new InteractableIdentification();
         botPos = initTrans.position;
         destPos = initTrans.position;
         botRot = initTrans.rotation;
@@ -102,26 +102,26 @@ public class SceneExplore
         botRot = destRot;
     }
 
-    public GameObject getCloestInteractable()
-    {
-        GameObject closest = null;
-        float minDistance = Mathf.Infinity;
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
-        {
-            var interactableInfo = entry.Value;
-            if (!interactableInfo.GetInteractFlag())
-            {
-                GameObject obj = interactableInfo.GetObject();
-                float distance = Vector3.Distance(botPos, obj.transform.position);
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-                    closest = obj;
-                }
-            }
-        }
-        return closest;
-    }
+    // public GameObject getCloestInteractable()
+    // {
+    //     GameObject closest = null;
+    //     float minDistance = Mathf.Infinity;
+    //     foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
+    //     {
+    //         var interactableInfo = entry.Value;
+    //         if (!interactableInfo.GetInteractFlag())
+    //         {
+    //             GameObject obj = interactableInfo.GetObject();
+    //             float distance = Vector3.Distance(botPos, obj.transform.position);
+    //             if (distance < minDistance)
+    //             {
+    //                 minDistance = distance;
+    //                 closest = obj;
+    //             }
+    //         }
+    //     }
+    //     return closest;
+    // }
 
     private bool IsMoveValid(Vector3 position, Vector3 direction)
     {

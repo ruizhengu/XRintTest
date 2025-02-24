@@ -1006,12 +1006,13 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.DeviceSimulator
         void OnGripAction(InputAction.CallbackContext context)
         {
             OnGripPerformed(context.phase.IsInProgress());
-            // Debug.Log("gripping");
+            Debug.Log("XRDeviceSimulatorUI: OnGripAction");
         }
 
         void OnTriggerAction(InputAction.CallbackContext context)
         {
             OnTriggerPerformed(context.phase.IsInProgress());
+            Debug.Log("XRDeviceSimulatorUI: OnTriggerAction");
         }
 
         void OnMenuAction(InputAction.CallbackContext context)

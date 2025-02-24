@@ -17,7 +17,8 @@ public class InteractableIdentification
     GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
     foreach (GameObject go in gos)
     {
-      FetchControl(go);
+      // TODO seperate control and interacatable
+      // FetchControl(go);
       FetchInteractable(go);
     }
   }

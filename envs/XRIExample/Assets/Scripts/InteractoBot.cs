@@ -8,6 +8,8 @@ using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.Utilities;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class InteractoBot : MonoBehaviour
 {
@@ -15,20 +17,68 @@ public class InteractoBot : MonoBehaviour
     public InputDevice xrControllerDevice;
     // Exploration related
     public SceneExplore explorer;
+    public InteractableIdentification interactableIdentification;
 
     void Awake()
     {
-        explorer = new SceneExplore(transform);
+        // explorer = new SceneExplore(transform);
+        interactableIdentification = new InteractableIdentification();
     }
 
     void Start()
     {
+        // var interactables = interactableIdentification.getInteractables();
+        ResigterListener();
         xrControllerDevice = InputSystem.GetDevice<UnityEngine.InputSystem.XR.XRController>();
         if (xrControllerDevice == null)
         {
             Debug.LogError("No XR controller device found");
         }
 
+    }
+
+    void ResigterListener()
+    {
+        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
+        {
+            var grabInteractable = entry.Key.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            if (grabInteractable != null)
+            {
+                grabInteractable.selectEntered.AddListener(OnSelectEntered);
+                grabInteractable.selectExited.AddListener(OnSelectExited);
+            }
+            var baseInteractable = entry.Key.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
+            if (baseInteractable != null)
+            {
+                baseInteractable.activated.AddListener(OnActivated);
+                baseInteractable.deactivated.AddListener(OnDeactivated);
+            }
+
+        }
+    }
+
+    private void OnSelectEntered(SelectEnterEventArgs args)
+    {
+        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
+        Debug.Log("OnSelectEntered: " + xrInteractable.gameObject.name);
+    }
+
+    private void OnSelectExited(SelectExitEventArgs args)
+    {
+        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
+        Debug.Log("OnSelectExited: " + xrInteractable.gameObject.name);
+    }
+
+    private void OnActivated(ActivateEventArgs args)
+    {
+        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
+        Debug.Log("OnActivated: " + xrInteractable.gameObject.name);
+    }
+
+    private void OnDeactivated(DeactivateEventArgs args)
+    {
+        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
+        Debug.Log("OnDeactivated: " + xrInteractable.gameObject.name);
     }
 
     void Update()
@@ -38,18 +88,18 @@ public class InteractoBot : MonoBehaviour
             SetGripValue(1.0f);
         }
         // transform.position = explorer.RandomExploration();
-        GameObject targetInteractable = explorer.getCloestInteractable();
-        if (targetInteractable)
-        {
-            var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
-            transform.position = updatePos;
-            transform.rotation = updateRot;
-            // StartCoroutine(MoveAndRotate(updatePos, updateRot, 1.0f));
-        }
-        else
-        {
-            transform.position = explorer.RandomExploration();
-        }
+        // GameObject targetInteractable = explorer.getCloestInteractable();
+        // if (targetInteractable)
+        // {
+        //     var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+        //     transform.position = updatePos;
+        //     transform.rotation = updateRot;
+        //     // StartCoroutine(MoveAndRotate(updatePos, updateRot, 1.0f));
+        // }
+        // else
+        // {
+        //     transform.position = explorer.RandomExploration();
+        // }
     }
 
     // IEnumerator MoveAndRotate(Vector3 targetPos, Quaternion targetRot, float duration)
@@ -84,7 +134,7 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    void getPlayerTransform()
+    void GetPlayerTransform()
     {
         GameObject mainCamera = GameObject.FindWithTag("MainCamera");
         // Debug.Log("mainCamera: (" + mainCamera.transform.position + ") (" + mainCamera.transform.rotation + ")");
@@ -107,4 +157,6 @@ public class InteractoBot : MonoBehaviour
             // Debug.Log("rightController not found");
         }
     }
+
+
 }

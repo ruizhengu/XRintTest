@@ -28,7 +28,7 @@ public class InteractableIdentification
   //   return controls;
   // }
 
-  public Dictionary<GameObject, InteractableInfo> getInteractables()
+  public Dictionary<GameObject, InteractableInfo> GetInteractables()
   {
     return interactables;
   }
@@ -103,6 +103,7 @@ public class InteractableIdentification
 
   public class InteractableInfo
   {
+    // TODO add a ''visited'' property, distinguish ''interacted'' and ''visited''
     GameObject interactable;
     bool interactFlag;
     String type;
@@ -119,6 +120,11 @@ public class InteractableIdentification
     public bool GetInteractFlag()
     {
       return this.interactFlag;
+    }
+
+    public void SetInteractFlag(bool flag)
+    {
+      this.interactFlag = flag;
     }
 
     public String GetObjectType()

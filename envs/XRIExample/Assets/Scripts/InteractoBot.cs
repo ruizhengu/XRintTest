@@ -13,7 +13,7 @@ public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
-
+    public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables = new Dictionary<GameObject, InteractableIdentification.InteractableInfo>();
     void Awake()
     {
         explorer = new SceneExplore(transform);
@@ -22,7 +22,7 @@ public class InteractoBot : MonoBehaviour
 
     void Start()
     {
-        // var interactables = interactableIdentification.getInteractables();
+        interactables = interactableIdentification.GetInteractables();
         ResigterListener();
     }
 
@@ -42,18 +42,51 @@ public class InteractoBot : MonoBehaviour
             StartCoroutine(ActivateAndRelease(0.5f));
         }
         // transform.position = explorer.RandomExploration();
-        // GameObject targetInteractable = explorer.getCloestInteractable();
-        // if (targetInteractable)
-        // {
-        //     var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
-        //     transform.position = updatePos;
-        //     transform.rotation = updateRot;
-        //     // StartCoroutine(MoveAndRotate(updatePos, updateRot, 1.0f));
-        // }
-        // else
-        // {
-        //     transform.position = explorer.RandomExploration();
-        // }
+        GameObject targetInteractable = GetCloestInteractable();
+        if (targetInteractable)
+        {
+            // var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+            // transform.position = updatePos;
+            // transform.rotation = updateRot;
+            // Debug.Log(targetInteractable.name + " visited");
+            StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
+
+            // interactables[targetInteractable].SetInteractFlag(true);
+        }
+        else
+        {
+            Debug.Log("All interactables are interacted. Test stop.");
+        }
+    }
+
+    IEnumerator MoveAndRotate(GameObject target, float duration)
+    {
+        var targetPositionOffset = 1.0f;
+        Vector3 targetForward = target.transform.forward;
+        targetForward.y = 0f;
+        targetForward.Normalize();
+        var destPos = new Vector3(
+            target.transform.position.x - targetForward.x * targetPositionOffset,
+            transform.position.y,
+            target.transform.position.z - targetForward.z * targetPositionOffset
+        );
+        var destRot = target.transform.rotation;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            // TODO only rotate y axis to avoid the agent ''falling''
+            transform.position = Vector3.MoveTowards(transform.position, destPos, elapsed / duration);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, destRot, elapsed / duration);
+            elapsed += Time.deltaTime;
+            if (transform.position == destPos && transform.rotation == destRot)
+            {
+                Debug.Log(target.name + " visited");
+                interactables[target].SetInteractFlag(true);
+            }
+            yield return null;
+        }
+        transform.position = destPos;
+        transform.rotation = destRot;
     }
 
     IEnumerator ActivateAndRelease(float duration)
@@ -80,7 +113,7 @@ public class InteractoBot : MonoBehaviour
     {
         GameObject closest = null;
         float minDistance = Mathf.Infinity;
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
+        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables)
         {
             var interactableInfo = entry.Value;
             if (!interactableInfo.GetInteractFlag())
@@ -123,7 +156,7 @@ public class InteractoBot : MonoBehaviour
 
     void ResigterListener()
     {
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
+        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables)
         {
             var grabInteractable = entry.Key.GetComponent<XRGrabInteractable>();
             var interactableType = entry.Value.GetObjectType();

@@ -131,7 +131,7 @@ public class SceneExplore
                !Physics.Raycast(position, direction, moveStep);
     }
 
-    private bool isTurnValid(Vector3 rotation, Vector3 direction)
+    private bool IsTurnValid(Vector3 rotation, Vector3 direction)
     {
         return (direction.x == 0 || (rotation.x + direction.x * turnStep >= turnLowerBound.x && rotation.x + direction.x * turnStep <= turnUpperBound.x)) &&
                (direction.y == 0 || (rotation.y + direction.y * turnStep >= turnLowerBound.y && rotation.y + direction.y * turnStep <= turnUpperBound.y)) &&

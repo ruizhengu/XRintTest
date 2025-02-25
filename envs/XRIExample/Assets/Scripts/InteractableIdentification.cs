@@ -9,8 +9,10 @@ using System.Runtime.InteropServices;
 public class InteractableIdentification
 {
   // protected static Dictionary<GameObject, ControlInfo> controls = new Dictionary<GameObject, ControlInfo>();
-  protected static Dictionary<GameObject, InteractableInfo> interactables = new Dictionary<GameObject, InteractableInfo>();
+  protected static Dictionary<GameObject, InteractableInfo> interactables = new();
   protected static GameObject triggered;
+  protected GameObject leftController;
+  protected GameObject rightController;
 
   public InteractableIdentification()
   {
@@ -27,6 +29,11 @@ public class InteractableIdentification
   // {
   //   return controls;
   // }
+
+  public void MoveLeftController(Vector3 dest)
+  {
+    leftController = GameObject.FindWithTag("LeftController");
+  }
 
   public Dictionary<GameObject, InteractableInfo> GetInteractables()
   {

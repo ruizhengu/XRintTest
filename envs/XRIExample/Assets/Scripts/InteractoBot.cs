@@ -9,11 +9,14 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
+public enum XRDeviceState { HMD, LeftController, RightController };
+
 public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
     public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables = new Dictionary<GameObject, InteractableIdentification.InteractableInfo>();
+    public XRDeviceState deviceState = XRDeviceState.HMD;
     void Awake()
     {
         explorer = new SceneExplore(transform);
@@ -32,7 +35,6 @@ public class InteractoBot : MonoBehaviour
         // transform.position = explorer.RandomExploration();
         // SetSelectValue(1.0f);
         // SetActivateValue(1.0f);
-
         if (Keyboard.current.oKey.wasPressedThisFrame)
         {
             Utils.StartSelect();
@@ -45,7 +47,8 @@ public class InteractoBot : MonoBehaviour
         GameObject targetInteractable = GetCloestInteractable();
         if (targetInteractable)
         {
-            var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+            // var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+            var (updatePos, updateRot) = explorer.EasyExploration(targetInteractable);
             transform.SetPositionAndRotation(updatePos, updateRot);
             Vector3 targetPos = explorer.GameObjectOffset(targetInteractable);
             // if (transform.position == targetPos)
@@ -53,6 +56,7 @@ public class InteractoBot : MonoBehaviour
             {
                 Debug.Log("Visited: " + targetInteractable.name);
                 interactables[targetInteractable].SetVisited(true);
+                SwitchDeviceState(XRDeviceState.LeftController);
             }
             // StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
         }
@@ -62,34 +66,28 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    IEnumerator MoveAndRotate(GameObject target, float duration)
+    public void SwitchDeviceState(XRDeviceState state)
     {
-        var targetPositionOffset = 1.0f;
-        Vector3 targetForward = target.transform.forward;
-        targetForward.y = 0f;
-        targetForward.Normalize();
-        var destPos = new Vector3(
-            target.transform.position.x - targetForward.x * targetPositionOffset,
-            transform.position.y,
-            target.transform.position.z - targetForward.z * targetPositionOffset
-        );
-        var destRot = target.transform.rotation;
-        float elapsed = 0f;
-        while (elapsed < duration)
+        if (deviceState != state)
         {
-            // TODO only rotate y axis to avoid the agent ''falling''
-            transform.position = Vector3.MoveTowards(transform.position, destPos, elapsed / duration);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, destRot, elapsed / duration);
-            elapsed += Time.deltaTime;
-            if (transform.position == destPos && transform.rotation == destRot)
+            if (state == XRDeviceState.HMD)
             {
-                Debug.Log(target.name + " visited");
-                interactables[target].SetVisited(true);
+                Utils.SwitchDeviceStateHMD();
+                deviceState = XRDeviceState.HMD;
+
             }
-            yield return null;
+            else if (state == XRDeviceState.LeftController)
+            {
+                Utils.SwitchDeviceStateLeftController();
+                deviceState = XRDeviceState.LeftController;
+            }
+            else if (state == XRDeviceState.RightController)
+            {
+                Utils.SwitchDeviceStateRightController();
+                deviceState = XRDeviceState.RightController;
+            }
+            Debug.Log("Swtich device state to: " + deviceState);
         }
-        transform.position = destPos;
-        transform.rotation = destRot;
     }
 
     IEnumerator ActivateAndRelease(float duration)

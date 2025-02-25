@@ -10,7 +10,6 @@ public class SceneExplore
     private Quaternion botRot;
     private Vector3 destPos;
     private Quaternion destRot;
-    private Vector3 internalAngle = new(0f, 0f, 0f);
     private Vector3 moveUpperBound = new(7f, 4.4f, 11f);
     private Vector3 moveLowerBound = new(-14f, 4.3f, -1f);
     private Vector3 turnUpperBound = new(60f, 180f, 0f);
@@ -60,28 +59,15 @@ public class SceneExplore
 
     public (Vector3 position, Quaternion rotation) GreedyExploration(GameObject go)
     {
-        // Vector3 targetPos = GameObjectOffset(go);
-        // destRot = go.transform.rotation;
-        // Debug.Log("Target GO: " + go.name);
-        // TODO consider occlusion
         botPos = Vector3.MoveTowards(
             botPos,
             destPos,
             moveStep * Time.deltaTime
         );
-        // botRot = Quaternion.RotateTowards(
-        //     botRot,
-        //     destRot,
-        //     turnStep * Time.deltaTime
-        // );
-        // Update destination when reaching target
-        // if (botPos == destPos && botRot == destRot)
         botRot = Quaternion.RotateTowards(
             botRot,
             destRot,
             turnStep * Time.deltaTime);
-        // if (botPos == destPos && botRot == destRot)
-        // Vector3 targetPos = GameObjectOffset(go);
         if (botPos == destPos)
         {
             destRot = TurnToGO(go);
@@ -90,40 +76,26 @@ public class SceneExplore
         return (botPos, botRot);
     }
 
-    IEnumerator MoveAndRotate(float duration)
+    public (Vector3 position, Quaternion rotation) EasyExploration(GameObject go)
     {
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            botPos = Vector3.Lerp(botPos, destPos, elapsed / duration);
-            botRot = Quaternion.Slerp(botRot, destRot, elapsed / duration);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-        botPos = destPos;
-        botRot = destRot;
+        Vector3 targetPos = GameObjectOffset(go);
+        Debug.Log("Target Go: " + go.name + " GO Pos: " + targetPos + " Agent Pos: " + botPos);
+        botPos = Vector3.MoveTowards(
+            botPos,
+            targetPos,
+            moveStep * Time.deltaTime
+        );
+        // Vector3 horizontalDirection = new Vector3(go.transform.rotation.x, 0f, go.transform.rotation.z);
+        // Quaternion yawRotation = Quaternion.LookRotation(horizontalDirection, Vector3.up);
+        botRot = Quaternion.RotateTowards(
+            botRot,
+            go.transform.rotation,
+            turnStep * Time.deltaTime);
+        return (botPos, botRot);
     }
 
-    // public GameObject getCloestInteractable()
-    // {
-    //     GameObject closest = null;
-    //     float minDistance = Mathf.Infinity;
-    //     foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactableIdentification.getInteractables())
-    //     {
-    //         var interactableInfo = entry.Value;
-    //         if (!interactableInfo.GetInteractFlag())
-    //         {
-    //             GameObject obj = interactableInfo.GetObject();
-    //             float distance = Vector3.Distance(botPos, obj.transform.position);
-    //             if (distance < minDistance)
-    //             {
-    //                 minDistance = distance;
-    //                 closest = obj;
-    //             }
-    //         }
-    //     }
-    //     return closest;
-    // }
+
+
 
     private bool CheckVisited(Vector3 dest)
     {
@@ -267,13 +239,53 @@ public class SceneExplore
             return destRot;
         }
         Vector3 direction = go.transform.position - destPos;
-        direction.y = 0;
-        if (direction.sqrMagnitude < 0.0001f)
+        Vector3 horizontalDirection = new Vector3(direction.x, 0f, direction.z);
+
+        // direction.y = 0;
+        Quaternion yawRotation;
+        if (horizontalDirection.sqrMagnitude < 0.0001f)
         {
-            return destRot;
+            // return destRot;
+            yawRotation = destRot;
         }
-        Quaternion targetRot = Quaternion.LookRotation(direction, Vector3.up);
-        return targetRot;
+        else
+        {
+            yawRotation = Quaternion.LookRotation(horizontalDirection, Vector3.up);
+        }
+        // Quaternion targetRot = Quaternion.LookRotation(direction, Vector3.up);
+        // Vector3 targetEuler = go.transform.rotation.eulerAngles;
+        Vector3 currentEuler = destRot.eulerAngles;
+        Vector3 newEuler = new Vector3(currentEuler.x, yawRotation.eulerAngles.y, currentEuler.z);
+        return Quaternion.Euler(newEuler);
+    }
+
+    IEnumerator MoveAndRotate(GameObject target, float duration)
+    {
+        var targetPositionOffset = 1.0f;
+        Vector3 targetForward = target.transform.forward;
+        targetForward.y = 0f;
+        targetForward.Normalize();
+        var destPos = new Vector3(
+            target.transform.position.x - targetForward.x * targetPositionOffset,
+            botPos.y,
+            target.transform.position.z - targetForward.z * targetPositionOffset
+        );
+        var destRot = target.transform.rotation;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            botPos = Vector3.MoveTowards(botPos, destPos, elapsed / duration);
+            botRot = Quaternion.RotateTowards(botRot, destRot, elapsed / duration);
+            elapsed += Time.deltaTime;
+            if (botPos == destPos && botRot == destRot)
+            {
+                Debug.Log(target.name + " visited");
+                // botRot[target].SetVisited(true);
+            }
+            yield return null;
+        }
+        botPos = destPos;
+        botRot = destRot;
     }
 }
 

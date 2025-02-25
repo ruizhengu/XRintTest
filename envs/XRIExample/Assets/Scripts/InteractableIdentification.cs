@@ -105,26 +105,37 @@ public class InteractableIdentification
   {
     // TODO add a ''visited'' property, distinguish ''interacted'' and ''visited''
     GameObject interactable;
-    bool interactFlag;
+    bool interacted;
+    bool visited;
     String type;
     public InteractableInfo(GameObject go, String type)
     {
       this.interactable = go;
       this.type = type;
-      this.interactFlag = false;
+      this.interacted = false;
     }
     public GameObject GetObject()
     {
       return this.interactable;
     }
-    public bool GetInteractFlag()
+
+    public void SetInteracted(bool flag)
     {
-      return this.interactFlag;
+      this.interacted = flag;
+    }
+    public bool GetInteracted()
+    {
+      return this.interacted;
     }
 
-    public void SetInteractFlag(bool flag)
+    public void SetVisited(bool flag)
     {
-      this.interactFlag = flag;
+      this.visited = flag;
+    }
+
+    public bool GetVisited()
+    {
+      return this.visited;
     }
 
     public String GetObjectType()

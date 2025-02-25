@@ -45,11 +45,11 @@ public class InteractoBot : MonoBehaviour
         GameObject targetInteractable = GetCloestInteractable();
         if (targetInteractable)
         {
-            // var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
-            // transform.position = updatePos;
-            // transform.rotation = updateRot;
+            var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
+            transform.position = updatePos;
+            transform.rotation = updateRot;
             // Debug.Log(targetInteractable.name + " visited");
-            StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
+            // StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
 
             // interactables[targetInteractable].SetInteractFlag(true);
         }
@@ -81,7 +81,7 @@ public class InteractoBot : MonoBehaviour
             if (transform.position == destPos && transform.rotation == destRot)
             {
                 Debug.Log(target.name + " visited");
-                interactables[target].SetInteractFlag(true);
+                interactables[target].SetVisited(true);
             }
             yield return null;
         }
@@ -116,7 +116,7 @@ public class InteractoBot : MonoBehaviour
         foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables)
         {
             var interactableInfo = entry.Value;
-            if (!interactableInfo.GetInteractFlag())
+            if (!interactableInfo.GetVisited())
             {
                 GameObject obj = interactableInfo.GetObject();
                 float distance = Vector3.Distance(transform.position, obj.transform.position);

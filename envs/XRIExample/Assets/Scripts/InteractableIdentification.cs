@@ -8,11 +8,11 @@ using System.Runtime.InteropServices;
 
 public class InteractableIdentification
 {
-  // protected static Dictionary<GameObject, ControlInfo> controls = new Dictionary<GameObject, ControlInfo>();
-  protected static Dictionary<GameObject, InteractableInfo> interactables = new();
-  protected static GameObject triggered;
-  protected GameObject leftController;
-  protected GameObject rightController;
+  private static Dictionary<GameObject, InteractableInfo> interactables = new();
+  private static GameObject triggered;
+  // private GameObject leftController;
+  // private GameObject rightController;
+  // private float controllerMovementStep = 0.1f;
 
   public InteractableIdentification()
   {
@@ -30,10 +30,16 @@ public class InteractableIdentification
   //   return controls;
   // }
 
-  public void MoveLeftController(Vector3 dest)
-  {
-    leftController = GameObject.FindWithTag("LeftController");
-  }
+  // public void MoveLeftController(Vector3 dest)
+  // {
+  //   leftController = GameObject.FindWithTag("LeftController");
+  //   Vector3 pos = leftController.transform.position
+  //   pos = Vector3.MoveTowards(
+  //     pose,
+  //     dest,
+  //     controllerMovementStep * Time.deltaTime
+  //   );
+  // }
 
   public Dictionary<GameObject, InteractableInfo> GetInteractables()
   {

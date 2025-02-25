@@ -15,12 +15,14 @@ public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
+    public ControllerAction controllerAction;
     public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables = new Dictionary<GameObject, InteractableIdentification.InteractableInfo>();
     public XRDeviceState deviceState = XRDeviceState.HMD;
     void Awake()
     {
         explorer = new SceneExplore(transform);
         interactableIdentification = new InteractableIdentification();
+        controllerAction = new ControllerAction("left");
     }
 
     void Start()
@@ -45,7 +47,7 @@ public class InteractoBot : MonoBehaviour
         }
         // transform.position = explorer.RandomExploration();
         GameObject targetInteractable = GetCloestInteractable();
-        if (targetInteractable)
+        if (targetInteractable && !controllerAction.GetMovementCompleted())
         {
             // var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
             var (updatePos, updateRot) = explorer.EasyExploration(targetInteractable);
@@ -57,12 +59,15 @@ public class InteractoBot : MonoBehaviour
                 Debug.Log("Visited: " + targetInteractable.name);
                 interactables[targetInteractable].SetVisited(true);
                 SwitchDeviceState(XRDeviceState.LeftController);
+                // StartCoroutine(controllerAction.ControllerMovement("left", targetPos));
+                controllerAction.ControllerMovement("left", targetPos);
             }
+            controllerAction.ControllerMovement("left", targetPos);
             // StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
         }
         else
         {
-            Debug.Log("All interactables are interacted. Test stop.");
+            // Debug.Log("All interactables are interacted. Test stop.");
         }
     }
 
@@ -114,7 +119,7 @@ public class InteractoBot : MonoBehaviour
     {
         GameObject closest = null;
         float minDistance = Mathf.Infinity;
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables)
+        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables) // test with the first interactable
         {
             var interactableInfo = entry.Value;
             if (!interactableInfo.GetVisited())
@@ -197,5 +202,69 @@ public class InteractoBot : MonoBehaviour
     {
         var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
         Debug.Log("OnDeactivated: " + xrInteractable.gameObject.name);
+    }
+
+    public class ControllerAction
+    {
+        private GameObject controller;
+        private float controllerMovementStep = 1f;
+        private bool movementCompleted;
+        private bool interactionCompleted;
+        // private string controllerType;
+
+        public ControllerAction(string controllerType)
+        {
+            if (controllerType == "left")
+            {
+                controller = GameObject.FindWithTag("LeftController");
+            }
+            else if (controllerType == "right")
+            {
+                controller = GameObject.FindWithTag("RightController");
+            }
+            else
+            {
+                Debug.LogError("Please create the controller with a valid type");
+            }
+        }
+
+        public void GetControllerInstance(string controllerType)
+        {
+            if (controllerType == "left")
+            {
+                controller = GameObject.FindWithTag("LeftController");
+            }
+            else if (controllerType == "right")
+            {
+                controller = GameObject.FindWithTag("RightController");
+            }
+            else
+            {
+                Debug.LogError("Please create the controller with a valid type");
+            }
+        }
+        public void ControllerMovement(string controllerType, Vector3 targetPos)
+        {
+            GetControllerInstance(controllerType);
+            Debug.Log("ControllerMovement--Controller Pose" + controller.transform.position);
+            Debug.Log("ControllerMovement--Target Pose" + targetPos);
+            controller.transform.position = Vector3.MoveTowards(
+                controller.transform.position,
+                targetPos,
+                controllerMovementStep * Time.deltaTime
+            );
+            // yield return new WaitForSeconds(0.0001f);
+        }
+
+        public void SetMovementCompleted(bool flag)
+        {
+            movementCompleted = flag;
+        }
+
+        public bool GetMovementCompleted()
+        {
+            return movementCompleted;
+        }
+
     }
 }

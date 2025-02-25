@@ -79,7 +79,7 @@ public class SceneExplore
     public (Vector3 position, Quaternion rotation) EasyExploration(GameObject go)
     {
         Vector3 targetPos = GameObjectOffset(go);
-        Debug.Log("Target Go: " + go.name + " GO Pos: " + targetPos + " Agent Pos: " + botPos);
+        // Debug.Log("Target Go: " + go.name + " GO Pos: " + targetPos + " Agent Pos: " + botPos);
         botPos = Vector3.MoveTowards(
             botPos,
             targetPos,

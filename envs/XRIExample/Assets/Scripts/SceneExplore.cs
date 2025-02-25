@@ -4,37 +4,36 @@ using System.Collections;
 using System.Collections.Generic;
 public class SceneExplore
 {
-    private float moveStep = 0.5f;
-    private float turnStep = 20f;
+    private readonly float moveStep = 0.1f;
+    private readonly float turnStep = 5f;
     private Vector3 botPos;
     private Quaternion botRot;
     private Vector3 destPos;
     private Quaternion destRot;
-    private Vector3 moveUpperBound = new Vector3(7f, 4.4f, 11f);
-    private Vector3 moveLowerBound = new Vector3(-14f, 4.3f, -1f);
-    private Vector3 turnUpperBound = new Vector3(60f, 180f, 0f);
-    private Vector3 turnLowerBound = new Vector3(-60f, -180f, 0f);
-    // public InteractableIdentification interactableIdentification;
+    private Vector3 internalAngle = new(0f, 0f, 0f);
+    private Vector3 moveUpperBound = new(7f, 4.4f, 11f);
+    private Vector3 moveLowerBound = new(-14f, 4.3f, -1f);
+    private Vector3 turnUpperBound = new(60f, 180f, 0f);
+    private Vector3 turnLowerBound = new(-60f, -180f, 0f);
     private Vector3[] moveDirections = {
-        new (1f, 0f, 0f),
-        new (-1f, 0f, 0f),
-        new (0f, 1f, 0f),
-        new (0f, -1f, 0f),
-        new (0f, 0f, 1f),
-        new (0f, 0f, -1f)
+        new(1f, 0f, 0f),
+        new(-1f, 0f, 0f),
+        new(0f, 1f, 0f),
+        new(0f, -1f, 0f),
+        new(0f, 0f, 1f),
+        new(0f, 0f, -1f)
     };
     private Vector3[] turnDirections = {
-        new Vector3(1f, 0f, 0f),
-        new Vector3(-1f, 0f, 0f),
-        new Vector3(0f, 1f, 0f),
-        new Vector3(0f, -1f, 0f),
-        new Vector3(0f, 0f, 1f),
-        new Vector3(0f, 0f, -1f)
+        new(1f, 0f, 0f),
+        new(-1f, 0f, 0f),
+        new(0f, 1f, 0f),
+        new(0f, -1f, 0f),
+        new(0f, 0f, 1f),
+        new(0f, 0f, -1f)
     };
     private readonly float targetPositionOffset = 1.0f;
     private readonly Queue<Vector3> visitedDest = new Queue<Vector3>();
     private readonly int visitedMemory = 10;
-
 
     public SceneExplore(Transform initTrans)
     {
@@ -61,7 +60,9 @@ public class SceneExplore
 
     public (Vector3 position, Quaternion rotation) GreedyExploration(GameObject go)
     {
-        destRot = go.transform.rotation;
+        // Vector3 targetPos = GameObjectOffset(go);
+        // destRot = go.transform.rotation;
+        // Debug.Log("Target GO: " + go.name);
         // TODO consider occlusion
         botPos = Vector3.MoveTowards(
             botPos,
@@ -74,8 +75,16 @@ public class SceneExplore
         //     turnStep * Time.deltaTime
         // );
         // Update destination when reaching target
+        // if (botPos == destPos && botRot == destRot)
+        botRot = Quaternion.RotateTowards(
+            botRot,
+            destRot,
+            turnStep * Time.deltaTime);
+        // if (botPos == destPos && botRot == destRot)
+        // Vector3 targetPos = GameObjectOffset(go);
         if (botPos == destPos)
         {
+            destRot = TurnToGO(go);
             destPos = GetGODestination(go);
         }
         return (botPos, botRot);
@@ -180,13 +189,19 @@ public class SceneExplore
         return validMoves;
     }
 
+    // private List<Vector3> GetValidTurns()
+    // {
+    //     var validTurns = new List<Vector3>();
+
+    // }
+
     /// <summary>
     /// Get an offsetted position of the target game object.
     /// Avoid get into the same position of the game object, which may disable further interaction
     /// </summary>
     /// <param name="go"></param>
     /// <returns></returns>
-    private Vector3 GameObjectOffset(GameObject go)
+    public Vector3 GameObjectOffset(GameObject go)
     {
         Vector3 targetForward = go.transform.forward;
         targetForward.y = 0f;
@@ -220,10 +235,10 @@ public class SceneExplore
         {
             // If the target movement desitation is visited, try the next one
             Vector3 moveCandidate = destPos + move * moveStep;
-            if (CheckVisited(moveCandidate))
-            {
-                continue;
-            }
+            // if (CheckVisited(moveCandidate))
+            // {
+            //     continue;
+            // }
             float distance = Vector3.Distance(moveCandidate, targetPos);
             if (distance < bestDistance)
             {
@@ -234,16 +249,31 @@ public class SceneExplore
         if (bestMove != Vector3.zero)
         {
             Vector3 dest = destPos + bestMove * moveStep;
-            // Debug.Log("Target Go: " + go.name + " GO Position: " + targetPos + " Dest Position: " + dest);
-            UpdateVisited(dest);
+            Debug.Log("Target Go: " + go.name + " GO Pos: " + targetPos + " Dest Pos: " + dest + " Agent Pos: " + botPos);
+            // UpdateVisited(dest);
             return dest;
         }
         else
         {
-            System.Random rnd = new System.Random();
+            System.Random rnd = new();
             int n = rnd.Next(0, validMoves.Count);
             return destPos + validMoves[n] * moveStep;
         }
+    }
+    private Quaternion TurnToGO(GameObject go)
+    {
+        if (Quaternion.Angle(go.transform.rotation, destRot) < 5.0f)
+        {
+            return destRot;
+        }
+        Vector3 direction = go.transform.position - destPos;
+        direction.y = 0;
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            return destRot;
+        }
+        Quaternion targetRot = Quaternion.LookRotation(direction, Vector3.up);
+        return targetRot;
     }
 }
 

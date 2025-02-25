@@ -28,7 +28,7 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
-
+        Time.timeScale = 3.0f;
         // transform.position = explorer.RandomExploration();
         // SetSelectValue(1.0f);
         // SetActivateValue(1.0f);
@@ -46,12 +46,15 @@ public class InteractoBot : MonoBehaviour
         if (targetInteractable)
         {
             var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
-            transform.position = updatePos;
-            transform.rotation = updateRot;
-            // Debug.Log(targetInteractable.name + " visited");
+            transform.SetPositionAndRotation(updatePos, updateRot);
+            Vector3 targetPos = explorer.GameObjectOffset(targetInteractable);
+            // if (transform.position == targetPos)
+            if (Vector3.Distance(transform.position, targetPos) < 0.5f)
+            {
+                Debug.Log("Visited: " + targetInteractable.name);
+                interactables[targetInteractable].SetVisited(true);
+            }
             // StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
-
-            // interactables[targetInteractable].SetInteractFlag(true);
         }
         else
         {

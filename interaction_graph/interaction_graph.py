@@ -1,5 +1,52 @@
 import re
 from pathlib import Path
+from unityparser import UnityDocument
+import networkx as nx
+import matplotlib.pyplot as plt
+
+class InteractionGraph:
+    def __init__(self):
+        self.graph = {}
+
+    def unity_parser(self, unity_file):
+        doc = UnityDocument.load_yaml(unity_file)
+        # entries = doc.entries
+        # first = doc.entry
+        # print(first.extra_anchor_data)
+        # for entry in entries:
+        #     node = {}
+        #     '''
+        #     Example:
+        #     Information from .unity file
+        #     ...
+        #     --- !u!1660057539 &9223372036854775807
+        #     SceneRoots:
+        #     ...
+        #
+        #     entry.anchor == 9223372036854775807
+        #     entry.__class__.__name__ == SceneRoots
+        #     '''
+        #     # print(entry.anchor, entry.__class__.__name__)
+        #     # for pro, val in vars(entry).items():
+        #     #     print(pro, val) # property and values
+        #
+        #     node["class"] = entry.__class__.__name__
+        #     self.graph[entry.anchor] = node
+
+        game_objects = doc.filter(class_names=["GameObject"])
+        for entry in game_objects:
+            node = {"class": entry.__class__.__name__}
+            self.graph[entry.anchor] = node
+        # print(self.graph)
+
+    def build_graph(self):
+        G = nx.Graph()
+        for anchor in self.graph.keys():
+            G.add_node(anchor)
+            G.add_edge("user", anchor)
+        nx.draw_networkx(G, with_labels=True)
+        plt.show()
+
 
 
 def parse_unity_file(filename):
@@ -11,7 +58,6 @@ def parse_unity_file(filename):
     current_object = None
     # Regex to match lines like: --- !u!222 &3409566789090859841
     header_regex = re.compile(r'^--- !u!(\d+)\s+&(\d+)$')
-
     with open(filename, 'r', encoding='utf-8') as f:
         for line in f:
             stripped_line = line.strip()
@@ -36,15 +82,12 @@ def parse_unity_file(filename):
         objects.append(current_object)
     return objects
 
+
 if __name__ == '__main__':
     # need to set the path of the scene, and also the path of where the prefabs are stored
     scenes = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample/Assets/Scenes")
     sut = scenes / "SampleScene.unity"
-    parsed_objects = parse_unity_file(sut)
-    for obj in parsed_objects:
-        print(f"Object Type: {obj['type']}, ID: {obj['id']}")
-        print("Content preview:")
-        # Print first few lines of the object's content for preview
-        for line in obj['content'][:5]:
-            print("  " + line)
-        print("-----")
+
+    graph = InteractionGraph()
+    graph.unity_parser(sut)
+    # graph.build_graph()

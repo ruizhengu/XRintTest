@@ -36,6 +36,7 @@ class InteractionGraph:
                 return k
         return None
 
+    # TODO: improve speed
     def get_script_interactable(self):
         scripts = self.unity_doc.filter(class_names=["MonoBehaviour"])
         scripts_interactable = []
@@ -45,29 +46,37 @@ class InteractionGraph:
             for asset_name, asset_data in self.assets.items():
                 if asset_data["guid"] == script_guid and "Interactable" in asset_name:
                     scripts_interactable.append(entry)
-                    # matching_scripts.append({
-                    #     "anchor": entry.anchor,
-                    #     "asset_name": asset_name,
-                    #     "guid": script_guid
-                    # })
-        # TODO: return the object
         return scripts_interactable
 
     def get_object_interactable(self):
+        objects = self.unity_doc.filter(class_names=["GameObject"])
         objects_interactable = []
-        for scripts_interactable in self.get_script_interactable():
-            if hasattr(scripts_interactable, "m_GameObject"):
-                objects_interactable.append(scripts_interactable)
-        print(objects_interactable)
+        for object in objects:
+            for scripts_interactable in self.get_script_interactable():
+                if hasattr(scripts_interactable, "m_GameObject"):
+                    if scripts_interactable.m_GameObject["fileID"] == object.anchor:
+                        objects_interactable.append(object)
         return objects_interactable
 
     def get_prefab_interactable(self):
+        prefabs = self.unity_doc.filter(class_names=["PrefabInstance"])
         prefabs_interactable = []
-        for objects_interactable in self.get_object_interactable():
-            if hasattr(objects_interactable, "m_PrefabInstance"):
-                prefabs_interactable.append(
-                    objects_interactable)
+        for prefab in prefabs:
+            for objects_interactable in self.get_object_interactable():
+                if hasattr(objects_interactable, "m_PrefabInstance"):
+                    if objects_interactable.m_PrefabInstance["fileID"] == prefab.anchor:
+
+                        for modification in prefab.m_Modification:
+                            print(modification)
+
+                        prefabs_interactable.append(prefab)
         return prefabs_interactable
+
+        # for objects_interactable in self.get_object_interactable():
+        #     if hasattr(objects_interactable, "m_PrefabInstance"):
+        #         prefabs_interactable.append(
+        #             objects_interactable)
+        # return prefabs_interactable
 
     '''
     Example:

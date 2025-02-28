@@ -5,56 +5,73 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 class InteractionGraph:
-    def __init__(self, root):
+    def __init__(self, root, sut):
         self.root = root
-        self.assets = self.root / "Assets"
+        self.asset_path = [
+            self.root / "Assets",
+            self.root / "Library"
+        ]
         self.graph = {}
+        self.sut = sut
+        self.assets = self.get_assets()
+        
 
     def get_assets(self):
         results = {}
-        for asset in self.assets.rglob("*.meta"):
-            file_name = asset.stem  # Get the file name without the suffix
-            with open(asset, 'r', encoding='utf-8') as f:
-                content = f.read()
-                guid_match = re.search(r'guid: (\w+)', content)
-                if guid_match:
-                    guid = guid_match.group(1)
-                    results[file_name] = {"guid": guid}
+        for path in self.asset_path:
+            for asset in path.rglob("*.meta"):
+                file_name = asset.stem  # Get the file name without the suffix
+                with open(asset, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    guid_match = re.search(r'guid: (\w+)', content)
+                    if guid_match:
+                        guid = guid_match.group(1)
+                        results[file_name] = {"guid": guid}
         return results
+    
+    def get_script_interactable(self):
+        doc = UnityDocument.load_yaml(self.sut)
+        scripts = doc.filter(class_names=["MonoBehaviour"])
+        matching_scripts = []
+        for entry in scripts:
+            script = entry.m_Script
+            script_guid = script["guid"]
+            # Check if this guid exists in any of the assets
+            for asset_name, asset_data in self.assets.items():
+                if asset_data["guid"] == script_guid and  "Interactable" in asset_name:
+                    matching_scripts.append({
+                        # "script": script,
+                        "asset_name": asset_name,
+                        # "guid": script_guid
+                    })
+        return matching_scripts
 
+
+    '''
+    Example:
+    Information from .unity file
+    ...
+    --- !u!1660057539 &9223372036854775807
+    SceneRoots:
+    ...
+
+    entry.anchor == 9223372036854775807
+    entry.__class__.__name__ == SceneRoots
+    '''
     def unity_parser(self, unity_file):
         doc = UnityDocument.load_yaml(unity_file)
-        # entries = doc.entries
-        # first = doc.entry
-        # print(first.extra_anchor_data)
-        # for entry in entries:
-        #     node = {}
-        #     '''
-        #     Example:
-        #     Information from .unity file
-        #     ...
-        #     --- !u!1660057539 &9223372036854775807
-        #     SceneRoots:
-        #     ...
-        #
-        #     entry.anchor == 9223372036854775807
-        #     entry.__class__.__name__ == SceneRoots
-        #     '''
-        #     # print(entry.anchor, entry.__class__.__name__)
-        #     # for pro, val in vars(entry).items():
-        #     #     print(pro, val) # property and values
-        #
-        #     node["class"] = entry.__class__.__name__
-        #     self.graph[entry.anchor] = node
-
         game_objects = doc.filter(class_names=["GameObject"])
         for entry in game_objects:
             node = {"class": entry.__class__.__name__}
             self.graph[entry.anchor] = node
+            # for pro, val in vars(entry).items():
+            #     print(pro, val) # property and values
+        scripts = doc.filter(class_names=["MonoBehaviour"])
+        for entry in scripts:
+            script = entry.m_Script
+            print(script)
 
-            for pro, val in vars(entry).items():
-                print(pro, val) # property and values
-            break
+        
 
     def build_graph(self):
         G = nx.Graph()
@@ -107,7 +124,8 @@ if __name__ == '__main__':
     scenes = assets / "Scenes"
     sut = scenes / "SampleScene.unity"
 
-    graph = InteractionGraph(root)
-    print(graph.get_assets())
-    graph.unity_parser(sut)
+    graph = InteractionGraph(root, sut)
+    print(graph.get_script_interactable())
+    # print(graph.get_assets())
+    # graph.unity_parser()
     # graph.build_graph()

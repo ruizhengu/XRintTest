@@ -5,8 +5,22 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 class InteractionGraph:
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
+        self.assets = self.root / "Assets"
         self.graph = {}
+
+    def get_assets(self):
+        results = {}
+        for asset in self.assets.rglob("*.meta"):
+            file_name = asset.stem  # Get the file name without the suffix
+            with open(asset, 'r', encoding='utf-8') as f:
+                content = f.read()
+                guid_match = re.search(r'guid: (\w+)', content)
+                if guid_match:
+                    guid = guid_match.group(1)
+                    results[file_name] = {"guid": guid}
+        return results
 
     def unity_parser(self, unity_file):
         doc = UnityDocument.load_yaml(unity_file)
@@ -37,7 +51,10 @@ class InteractionGraph:
         for entry in game_objects:
             node = {"class": entry.__class__.__name__}
             self.graph[entry.anchor] = node
-        # print(self.graph)
+
+            for pro, val in vars(entry).items():
+                print(pro, val) # property and values
+            break
 
     def build_graph(self):
         G = nx.Graph()
@@ -85,9 +102,12 @@ def parse_unity_file(filename):
 
 if __name__ == '__main__':
     # need to set the path of the scene, and also the path of where the prefabs are stored
-    scenes = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample/Assets/Scenes")
+    root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample")
+    assets = root / "Assets"
+    scenes = assets / "Scenes"
     sut = scenes / "SampleScene.unity"
 
-    graph = InteractionGraph()
+    graph = InteractionGraph(root)
+    print(graph.get_assets())
     graph.unity_parser(sut)
     # graph.build_graph()

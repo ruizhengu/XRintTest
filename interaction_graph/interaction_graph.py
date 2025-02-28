@@ -14,6 +14,7 @@ class InteractionGraph:
         self.graph = {}
         self.sut = sut
         self.assets = self.get_assets()
+        self.unity_doc = UnityDocument.load_yaml(self.sut)
         
 
     def get_assets(self):
@@ -29,24 +30,42 @@ class InteractionGraph:
                         results[file_name] = {"guid": guid}
         return results
     
+    def get_name_by_guid(self, guid):
+        for k, v in self.assets.items():
+            if v["guid"] == guid:
+                return k
+        return None
+    
     def get_script_interactable(self):
-        doc = UnityDocument.load_yaml(self.sut)
-        scripts = doc.filter(class_names=["MonoBehaviour"])
+        scripts = self.unity_doc.filter(class_names=["MonoBehaviour"])
         matching_scripts = []
         for entry in scripts:
-            script = entry.m_Script
-            script_guid = script["guid"]
+            script_guid = entry.m_Script.get("guid")
             # Check if this guid exists in any of the assets
             for asset_name, asset_data in self.assets.items():
                 if asset_data["guid"] == script_guid and  "Interactable" in asset_name:
                     matching_scripts.append({
-                        # "script": script,
+                        "anchor": entry.anchor,
                         "asset_name": asset_name,
-                        # "guid": script_guid
+                        "guid": script_guid
                     })
         return matching_scripts
 
-
+    def get_object_interactable(self):
+        interactable_objects = []
+        script_interactable = self.get_script_interactable()
+        print(script_interactable)
+        for entry in self.unity_doc.filter(attributes=["m_Component"]):
+            components = entry.m_Component
+            # print(entry.anchor, components)
+            for component in components:
+                for script in script_interactable:
+                    if script["anchor"] == component["component"]["fileID"]:
+                        # if hasattr(entry, 'name'):
+                            # interactable_objects.append(entry.name)
+                        interactable_objects.append(entry.anchor)
+                        break
+        return interactable_objects
     '''
     Example:
     Information from .unity file
@@ -58,15 +77,14 @@ class InteractionGraph:
     entry.anchor == 9223372036854775807
     entry.__class__.__name__ == SceneRoots
     '''
-    def unity_parser(self, unity_file):
-        doc = UnityDocument.load_yaml(unity_file)
-        game_objects = doc.filter(class_names=["GameObject"])
+    def unity_parser(self):
+        game_objects = self.unity_doc.filter(class_names=["GameObject"])
         for entry in game_objects:
             node = {"class": entry.__class__.__name__}
             self.graph[entry.anchor] = node
             # for pro, val in vars(entry).items():
             #     print(pro, val) # property and values
-        scripts = doc.filter(class_names=["MonoBehaviour"])
+        scripts = self.unity_doc.filter(class_names=["MonoBehaviour"])
         for entry in scripts:
             script = entry.m_Script
             print(script)
@@ -125,7 +143,9 @@ if __name__ == '__main__':
     sut = scenes / "SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    print(graph.get_script_interactable())
-    # print(graph.get_assets())
-    # graph.unity_parser()
-    # graph.build_graph()
+    print(graph.get_name_by_guid("72138a47ec7b8714c91aa39dcdf3b714"))
+    # for k, v in graph.assets.items():
+    #     if ".cs" in k and "Interactable" in k:
+    #         print(k, v)
+    # print(graph.get_script_interactable())
+    # print(graph.get_object_interactable())

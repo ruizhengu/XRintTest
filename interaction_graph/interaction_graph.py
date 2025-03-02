@@ -36,47 +36,34 @@ class InteractionGraph:
                 return k
         return None
 
-    # TODO: improve speed
-    def get_script_interactable(self):
-        scripts = self.unity_doc.filter(class_names=["MonoBehaviour"])
-        scripts_interactable = []
-        for entry in scripts:
-            script_guid = entry.m_Script.get("guid")
-            # Check if this guid exists in any of the assets
-            for asset_name, asset_data in self.assets.items():
-                if asset_data["guid"] == script_guid and "Interactable" in asset_name:
-                    scripts_interactable.append(entry)
-        return scripts_interactable
+    def get_script_interaction(self):
+        # Get the guids of the assets with "Interactable" or "Interactor" in the name
+        interaction_guids = {asset_data["guid"] for asset_name, asset_data in self.assets.items() 
+                            if "Interactable" in asset_name or "Interactor" in asset_name}
+        scripts = self.unity_doc.filter(class_names=["MonoBehaviour"]) # Get MonoBehaviour scripts
+        # Find the scripts that have a guid that is in the interaction_guids
+        return [entry for entry in scripts if entry.m_Script.get("guid") in interaction_guids]
 
-    def get_object_interactable(self):
+    def get_object_interaction(self):
         objects = self.unity_doc.filter(class_names=["GameObject"])
-        objects_interactable = []
-        for object in objects:
-            for scripts_interactable in self.get_script_interactable():
-                if hasattr(scripts_interactable, "m_GameObject"):
-                    if scripts_interactable.m_GameObject["fileID"] == object.anchor:
-                        objects_interactable.append(object)
-        return objects_interactable
+        scripts_interaction = self.get_script_interaction()
+        interaction_object_ids = {script.m_GameObject.get("fileID") for script in scripts_interaction
+                                 if hasattr(script, "m_GameObject")}
+        return [go for go in objects if go.anchor in interaction_object_ids]
 
-    def get_prefab_interactable(self):
+    def get_prefab_interaction(self):
         prefabs = self.unity_doc.filter(class_names=["PrefabInstance"])
-        prefabs_interactable = []
+        objects_interaction = self.get_object_interaction()
+        interactable_prefab_ids = {obj.m_PrefabInstance["fileID"] for obj in objects_interaction 
+                                  if hasattr(obj, 'm_PrefabInstance')}
+        prefabs_interaction = []
         for prefab in prefabs:
-            for objects_interactable in self.get_object_interactable():
-                if hasattr(objects_interactable, "m_PrefabInstance"):
-                    if objects_interactable.m_PrefabInstance["fileID"] == prefab.anchor:
-
-                        for modification in prefab.m_Modification:
-                            print(modification)
-
-                        prefabs_interactable.append(prefab)
-        return prefabs_interactable
-
-        # for objects_interactable in self.get_object_interactable():
-        #     if hasattr(objects_interactable, "m_PrefabInstance"):
-        #         prefabs_interactable.append(
-        #             objects_interactable)
-        # return prefabs_interactable
+            if prefab.anchor in interactable_prefab_ids and hasattr(prefab, "m_Modification"):
+                modifications = prefab.m_Modification["m_Modifications"]
+                for mod in modifications:
+                    if mod.get("propertyPath") == "m_Name":
+                        print(mod.get("value"))
+        return prefabs_interaction
 
     '''
     Example:
@@ -158,5 +145,5 @@ if __name__ == '__main__':
     #         print(k, v)
     # print(graph.get_script_interactable())
     # print(graph.get_object_interactable())
-    for prefab in graph.get_prefab_interactable():
+    for prefab in graph.get_prefab_interaction():
         print(prefab)

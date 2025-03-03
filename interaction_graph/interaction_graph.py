@@ -51,7 +51,7 @@ class InteractionGraph:
             results.append(instance.m_SourcePrefab.get("guid"))
         return results
 
-    def get_interaction_script(self):
+    def get_interaction_scripts(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
         Based on .meta files and record the guid of the script
@@ -66,7 +66,7 @@ class InteractionGraph:
                         scripts[file_name] = {"guid": guid}
         return scripts
 
-    def get_interactive_prefab(self):
+    def get_interactive_prefabs(self):
         '''
         Get the prefab instances (as in prefab files instead from the scene under test) 
         that are interactable (Interactable or Interactor)
@@ -83,26 +83,23 @@ class InteractionGraph:
         '''
         Get the interactables and interactors in the scene under test
         '''
-        objects = []
+        # Get interaction script guids and matching MonoBehaviours
         interaction_script_guids = {
-            data["guid"] for name, data in self.get_interaction_script().items()}
+            data["guid"] for _, data in self.get_interaction_scripts().items()}
         scene_scripts = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Script",))
-        for script in scene_scripts:
-            if script.m_Script.get("guid") in interaction_script_guids:
-                objects.append(script.m_GameObject.get("fileID"))
-        print(objects, len(objects))
-        prefabs = []
-        for obj in objects:
-            entry = self.get_entry_by_anchor(obj)
-            if entry:
-                prefab_id = entry.m_PrefabInstance.get("fileID")
-                prefabs.append(prefab_id)
-        for prefab in prefabs:
-            entry = self.get_entry_by_anchor(prefab)
-            if entry:
-                modifications = entry.m_Modification["m_Modifications"]
-                for mod in modifications:
+        # Get interactive GO IDs and their prefab IDs
+        game_object_ids = [script.m_GameObject.get("fileID") for script in scene_scripts
+                           if script.m_Script.get("guid") in interaction_script_guids]
+        prefab_ids = []
+        for obj_id in game_object_ids:
+            if entry := self.get_entry_by_anchor(obj_id):
+                if prefab_id := entry.m_PrefabInstance.get("fileID"):
+                    prefab_ids.append(prefab_id)
+        # Get prefab names
+        for prefab_id in prefab_ids:
+            if entry := self.get_entry_by_anchor(prefab_id):
+                for mod in entry.m_Modification["m_Modifications"]:
                     if mod.get("propertyPath") == "m_Name":
                         print(mod.get("value"))
         return None
@@ -168,6 +165,14 @@ class InteractionGraph:
         nx.draw_networkx(G, with_labels=True)
         plt.show()
 
+    def test(self):
+        interaction_scripts = self.get_interaction_scripts()
+        print(interaction_scripts, len(interaction_scripts))
+        interactive_prefabs = self.get_interactive_prefabs()
+        print(interactive_prefabs, len(interactive_prefabs))
+        scene_interactives = self.get_scene_interactives()
+        print(scene_interactives, len(scene_interactives))
+
 
 def parse_unity_file(filename):
     """
@@ -211,6 +216,4 @@ if __name__ == '__main__':
     sut = scenes / "SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    # print(graph.get_interaction_script(), len(graph.get_interaction_script()))
-    # print(graph.get_interactive_prefab(), len(graph.get_interactive_prefab()))
-    print(graph.get_scene_interactives(), len(graph.get_scene_interactives()))
+    graph.test()

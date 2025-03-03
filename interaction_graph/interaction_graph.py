@@ -34,6 +34,12 @@ class InteractionGraph:
                 return found_guid
         return None
 
+    def get_entry_by_anchor(self, anchor):
+        for entry in self.scene_doc.entries:
+            if entry.anchor == anchor:
+                return entry
+        return None
+
     def get_scene_prefabs(self):
         '''
         Get all the prefab instances in the scene under test
@@ -72,6 +78,34 @@ class InteractionGraph:
                     if self.get_file_guid(asset) == prefab:
                         results[asset.stem] = {"guid": prefab}
         return results
+
+    def get_scene_interactives(self):
+        '''
+        Get the interactables and interactors in the scene under test
+        '''
+        objects = []
+        interaction_script_guids = {
+            data["guid"] for name, data in self.get_interaction_script().items()}
+        scene_scripts = self.scene_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Script",))
+        for script in scene_scripts:
+            if script.m_Script.get("guid") in interaction_script_guids:
+                objects.append(script.m_GameObject.get("fileID"))
+        print(objects, len(objects))
+        prefabs = []
+        for obj in objects:
+            entry = self.get_entry_by_anchor(obj)
+            if entry:
+                prefab_id = entry.m_PrefabInstance.get("fileID")
+                prefabs.append(prefab_id)
+        for prefab in prefabs:
+            entry = self.get_entry_by_anchor(prefab)
+            if entry:
+                modifications = entry.m_Modification["m_Modifications"]
+                for mod in modifications:
+                    if mod.get("propertyPath") == "m_Name":
+                        print(mod.get("value"))
+        return None
 
     # def get_script_interaction(self):
     #     # Get the guids of the assets with "Interactable" or "Interactor" in the name
@@ -178,7 +212,5 @@ if __name__ == '__main__':
 
     graph = InteractionGraph(root, sut)
     # print(graph.get_interaction_script(), len(graph.get_interaction_script()))
-    print(graph.get_interactive_prefab())
-    # graph.get_assets_prefab()
-    # for prefab in graph.get_prefab_interaction():
-    #     print(prefab)
+    # print(graph.get_interactive_prefab(), len(graph.get_interactive_prefab()))
+    print(graph.get_scene_interactives(), len(graph.get_scene_interactives()))

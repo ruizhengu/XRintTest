@@ -13,20 +13,34 @@ class InteractionGraph:
             self.root / "Assets",
             self.root / "Library"
         ]
-        # self.graph = {}
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.interaction_scripts = self.get_interaction_scripts()
 
-    def get_asset_name_by_guid(self, guid):
+    def get_assets(self, suffix=".meta"):
+        '''
+        Get all assets based on the asset paths, default to .meta files
+        '''
+        assets = []
         for path in self.asset_path:
-            for asset in path.rglob("*.meta"):
-                found_guid = self.get_file_guid(asset)
-                if found_guid == guid:
-                    return asset.stem  # Get the file name without the suffix
+            for asset in path.rglob(suffix):
+                assets.append(asset)
+        return assets
+
+    def get_asset_name_by_guid(self, guid):
+        '''
+        Get the asset name by the guid
+        '''
+        for asset in self.get_assets():
+            found_guid = self.get_file_guid(asset)
+            if found_guid == guid:
+                return asset.stem  # Get the file name without the suffix
         return None
 
     def get_file_guid(self, file_name):
+        '''
+        Get the guid of the file
+        '''
         with open(file_name, 'r', encoding='utf-8') as f:
             content = f.read()
             guid_match = re.search(r'guid: (\w+)', content)
@@ -52,6 +66,21 @@ class InteractionGraph:
                 return entry
         return None
 
+    def get_prefabs_source_from_scene(self):
+        '''
+        Get the prefab source according to the prefabs in the scene
+        '''
+        prefab_guids = set(self.get_scene_prefabs())
+        prefab_files = {}
+        # Find prefab source files that match scene prefab GUIDs
+        for meta_file in self.get_assets("*.prefab.meta"):
+            guid = self.get_file_guid(meta_file)
+            if guid in prefab_guids:
+                prefab_name = meta_file.stem
+                prefab_files[prefab_name.replace(".prefab", "")] = meta_file.parent / \
+                    prefab_name
+        return prefab_files
+
     def get_scene_prefabs(self):
         '''
         Get all the prefab instances in the scene under test
@@ -63,7 +92,20 @@ class InteractionGraph:
             prefab_guids.append(instance.m_SourcePrefab.get("guid"))
         return prefab_guids
 
+    def get_interactive_uis(self):
+        results = []
+        prefab_files = self.get_prefabs_source_from_scene()
+        # Check each prefab's scripts for event trigger (m_Delegates)
+        for prefab_name, prefab_path in prefab_files.items():
+            prefab_doc = UnityDocument.load_yaml(prefab_path)
+            delegates = prefab_doc.filter(
+                class_names=("MonoBehaviour",), attributes=("m_Delegates",))
+        return results
+
     def get_scene_uis(self):
+        '''
+        Get all the UI objects in the scene under test (based on m_Delegates)
+        '''
         delegates = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Delegates",))
         objects = []
@@ -73,23 +115,18 @@ class InteractionGraph:
             objects.append(object.m_Name)
         return objects
 
-    def get_interactive_uis(self):
-        # TODO: Need to get the interactive UI in the scene under test
-        pass
-
     def get_interaction_scripts(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
         Based on .meta files and record the guid of the script
         '''
         scripts = {}
-        for path in self.asset_path:
-            for asset in path.rglob("*.meta"):
-                file_name = asset.stem  # Get the file name without the suffix
-                if (file_name.endswith(".cs") and ("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name:
-                    if guid := self.get_file_guid(asset):
-                        scripts[file_name] = {
-                            "guid": guid, "file": asset}
+        for asset in self.get_assets("*.cs.*"):
+            file_name = asset.stem  # Get the file name without the suffix
+            if (("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name:
+                if guid := self.get_file_guid(asset):
+                    scripts[file_name] = {
+                        "guid": guid, "file": asset}
         return scripts
 
     def get_interactive_prefabs(self):
@@ -97,19 +134,8 @@ class InteractionGraph:
         Get prefab instances from the scene that are either Interactable or Interactor
         '''
         results = {'interactables': [], 'interactors': []}
-        # Convert to set for O(1) lookup
-        prefab_guids = set(self.get_scene_prefabs())
-        # Find prefab files that match scene prefab GUIDs
-        prefab_files = {}
-        for path in self.asset_path:
-            for meta_file in path.rglob("*.prefab.meta"):
-                if meta_file.stem.endswith(".prefab"):
-                    guid = self.get_file_guid(meta_file)
-                    if guid in prefab_guids:
-                        prefab_name = meta_file.stem
-                        prefab_files[prefab_name.replace(".prefab", "")] = meta_file.parent / \
-                            prefab_name
-        # Check each prefab's scripts for interactable/interactor components
+        # get prefab source files within the scene
+        prefab_files = self.get_prefabs_source_from_scene()
         for prefab_name, prefab_path in prefab_files.items():
             prefab_doc = UnityDocument.load_yaml(prefab_path)
             script_guids = {script.m_Script.get("guid") for script in
@@ -194,8 +220,9 @@ class InteractionGraph:
         plt.show()
 
     def test(self):
-        # graph.build_graph()
-        print(self.get_scene_uis())
+        # print(self.get_interactive_prefabs())
+        graph.build_graph()
+        # print(self.get_scene_uis())
 
 
 def parse_unity_file(filename):

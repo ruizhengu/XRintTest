@@ -62,7 +62,6 @@ class InteractionGraph:
             for asset in path.rglob("*.meta"):
                 file_name = asset.stem  # Get the file name without the suffix
                 if (file_name.endswith(".cs") and ("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name:
-                    # guid = self.get_file_guid(asset)
                     if guid := self.get_file_guid(asset):
                         scripts[file_name] = {
                             "guid": guid, "file": asset}
@@ -70,35 +69,34 @@ class InteractionGraph:
 
     def get_interactive_prefabs(self):
         '''
-        Get the prefab instances (as in prefab files instead from the scene under test) 
-        that are interactable (Interactable or Interactor)
+        Get prefab instances from the scene that are either Interactable or Interactor
         '''
-        results = {
-            'interactables': [],
-            'interactors': []
-        }
-        prefab_guids = self.get_scene_prefabs()
-        prefab_in_scene = {}
+        results = {'interactables': [], 'interactors': []}
+        # Convert to set for O(1) lookup
+        prefab_guids = set(self.get_scene_prefabs())
+        # Find prefab files that match scene prefab GUIDs
+        prefab_files = {}
         for path in self.asset_path:
-            for asset in path.rglob("*.meta"):
-                if asset.stem.endswith(".prefab"):
-                    for prefab_id in prefab_guids:
-                        if self.get_file_guid(asset) == prefab_id:
-                            prefab_in_scene[asset.stem] = {
-                                "guid": prefab_id, "file": asset.parent / asset.stem}
-        for prefab_name, prefab_data in prefab_in_scene.items():
-            prefab_doc = UnityDocument.load_yaml(prefab_data["file"])
-            prefab_scripts = prefab_doc.filter(class_names=(
-                "MonoBehaviour",), attributes=("m_Script",))
-            for script in prefab_scripts:
-                for script_name, script_data in self.interaction_scripts.items():
-                    if script_data["guid"] == script.m_Script.get("guid"):
-                        if "Interactable" in script_name:
-                            results["interactables"].append(
-                                prefab_name)
-                        elif "Interactor" in script_name:
-                            results["interactors"].append(
-                                prefab_name)
+            for meta_file in path.rglob("*.prefab.meta"):
+                if meta_file.stem.endswith(".prefab"):
+                    guid = self.get_file_guid(meta_file)
+                    if guid in prefab_guids:
+                        prefab_name = meta_file.stem
+                        prefab_files[prefab_name] = meta_file.parent / \
+                            prefab_name
+        # Check each prefab's scripts for interactable/interactor components
+        for prefab_name, prefab_path in prefab_files.items():
+            prefab_doc = UnityDocument.load_yaml(prefab_path)
+            script_guids = {script.m_Script.get("guid") for script in
+                            prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
+            # Check if prefab has any interaction scripts
+            for script_name, script_data in self.interaction_scripts.items():
+                if script_data["guid"] in script_guids:
+                    if "Interactable" in script_name:
+                        results["interactables"].append(prefab_name)
+                    elif "Interactor" in script_name:
+                        results["interactors"].append(prefab_name)
+                    break  # Found an interaction script, no need to check others
         return results
 
     def get_scene_interactives(self):
@@ -133,11 +131,12 @@ class InteractionGraph:
         Categorize scene interactives and interactive prefabs into interactables and interactors
         Returns: Dictionary with two lists - 'interactables' and 'interactors'
         '''
-        result = {
-            'interactables': [],
-            'interactors': []
-        }
+        result = self.get_interactive_prefabs()
         return result
+
+    def get_interactive_ui(self):
+        # TODO: Need to get the interactive UI in the scene under test
+        pass
 
     # def get_script_interaction(self):
     #     # Get the guids of the assets with "Interactable" or "Interactor" in the name
@@ -253,5 +252,5 @@ if __name__ == '__main__':
     sut = scenes / "SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    # graph.test()
-    print(graph.get_asset_name_by_guid("77e7c27b2c5525e4aa8cc9f99d654486"))
+    graph.test()
+    # print(graph.get_asset_name_by_guid("77e7c27b2c5525e4aa8cc9f99d654486"))

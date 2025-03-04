@@ -63,6 +63,20 @@ class InteractionGraph:
             prefab_guids.append(instance.m_SourcePrefab.get("guid"))
         return prefab_guids
 
+    def get_scene_uis(self):
+        delegates = self.scene_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
+        objects = []
+        for delegate in delegates:
+            object = self.get_entry_by_anchor(
+                delegate.m_GameObject.get("fileID"))
+            objects.append(object.m_Name)
+        return objects
+
+    def get_interactive_uis(self):
+        # TODO: Need to get the interactive UI in the scene under test
+        pass
+
     def get_interaction_scripts(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
@@ -162,10 +176,6 @@ class InteractionGraph:
         }
         return merged_results
 
-    def get_interactive_ui(self):
-        # TODO: Need to get the interactive UI in the scene under test
-        pass
-
     def build_graph(self):
         interactives = graph.get_interactors_interactables()
         G = nx.Graph()
@@ -184,12 +194,8 @@ class InteractionGraph:
         plt.show()
 
     def test(self):
-        # print(interactive_prefabs, len(interactive_prefabs["interactables"]), len(
-        #     interactive_prefabs["interactors"]))
-        # scene_interactives = self.get_scene_interactives()
-        # print(scene_interactives, len(scene_interactives))
-        # categorized = graph.get_interactors_interactables()
-        graph.build_graph()
+        # graph.build_graph()
+        print(self.get_scene_uis())
 
 
 def parse_unity_file(filename):

@@ -13,7 +13,7 @@ class InteractionGraph:
             self.root / "Assets",
             self.root / "Library"
         ]
-        self.graph = {}
+        # self.graph = {}
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.interaction_scripts = self.get_interaction_scripts()
@@ -36,6 +36,17 @@ class InteractionGraph:
         return None
 
     def get_entry_by_anchor(self, anchor):
+        '''
+        Example:
+        Information from .unity file
+        ...
+        --- !u!1660057539 &9223372036854775807
+        SceneRoots:
+        ...
+
+        entry.anchor == 9223372036854775807
+        entry.__class__.__name__ == SceneRoots
+        '''
         for entry in self.scene_doc.entries:
             if entry.anchor == anchor:
                 return entry
@@ -155,78 +166,30 @@ class InteractionGraph:
         # TODO: Need to get the interactive UI in the scene under test
         pass
 
-    # def get_script_interaction(self):
-    #     # Get the guids of the assets with "Interactable" or "Interactor" in the name
-    #     interaction_guids = {asset_data["guid"] for asset_name, asset_data in self.assets.items()
-    #                          if "Interactable" in asset_name or "Interactor" in asset_name}
-    #     scripts = self.unity_doc.filter(
-    #         class_names=["MonoBehaviour"])  # Get MonoBehaviour scripts
-    #     # Find the scripts that have a guid that is in the interaction_guids
-    #     return [entry for entry in scripts if entry.m_Script.get("guid") in interaction_guids]
-
-    # def get_object_interaction(self):
-    #     objects = self.unity_doc.filter(class_names=["GameObject"])
-    #     scripts_interaction = self.get_script_interaction()
-    #     interaction_object_ids = {script.m_GameObject.get("fileID") for script in scripts_interaction
-    #                               if hasattr(script, "m_GameObject")}
-    #     return [go for go in objects if go.anchor in interaction_object_ids]
-
-    # def get_prefab_interaction(self):
-    #     prefabs = self.unity_doc.filter(class_names=["PrefabInstance"])
-    #     objects_interaction = self.get_object_interaction()
-    #     interactable_prefab_ids = {obj.m_PrefabInstance["fileID"] for obj in objects_interaction
-    #                                if hasattr(obj, 'm_PrefabInstance')}
-    #     prefabs_interaction = []
-    #     for prefab in prefabs:
-    #         if prefab.anchor in interactable_prefab_ids and hasattr(prefab, "m_Modification"):
-    #             modifications = prefab.m_Modification["m_Modifications"]
-    #             for mod in modifications:
-    #                 if mod.get("propertyPath") == "m_Name":
-    #                     print(mod.get("value"))
-    #     return prefabs_interaction
-
-    def unity_parser(self):
-        '''
-        Example:
-        Information from .unity file
-        ...
-        --- !u!1660057539 &9223372036854775807
-        SceneRoots:
-        ...
-
-        entry.anchor == 9223372036854775807
-        entry.__class__.__name__ == SceneRoots
-        '''
-        game_objects = self.unity_doc.filter(class_names=["GameObject"])
-        for entry in game_objects:
-            node = {"class": entry.__class__.__name__}
-            self.graph[entry.anchor] = node
-            # for pro, val in vars(entry).items():
-            #     print(pro, val) # property and values
-        scripts = self.unity_doc.filter(class_names=["MonoBehaviour"])
-        for entry in scripts:
-            script = entry.m_Script
-            print(script)
-
     def build_graph(self):
+        interactives = graph.get_interactors_interactables()
         G = nx.Graph()
-        for anchor in self.graph.keys():
-            G.add_node(anchor)
-            G.add_edge("user", anchor)
-        nx.draw_networkx(G, with_labels=True)
+        edge_labels = {}
+        for interactor in interactives['interactors']:
+            G.add_node(interactor)
+        event_count = 1
+        for interactable in interactives['interactables']:
+            G.add_node(interactable)
+            G.add_edge(interactor, interactable)
+            edge_labels[(interactor, interactable)] = f"e_{event_count}"
+            event_count += 1
+        nx.draw_networkx(G, pos=nx.spring_layout(G), with_labels=True)
+        nx.draw_networkx_edge_labels(
+            G, pos=nx.spring_layout(G), edge_labels=edge_labels)
         plt.show()
 
     def test(self):
-        # interactive_prefabs = self.get_interactive_prefabs()
         # print(interactive_prefabs, len(interactive_prefabs["interactables"]), len(
         #     interactive_prefabs["interactors"]))
         # scene_interactives = self.get_scene_interactives()
         # print(scene_interactives, len(scene_interactives))
-        categorized = graph.get_interactors_interactables()
-        print("Interactables:", categorized['interactables'], len(
-            categorized['interactables']))
-        print("Interactors:", categorized['interactors'], len(
-            categorized['interactors']))
+        # categorized = graph.get_interactors_interactables()
+        graph.build_graph()
 
 
 def parse_unity_file(filename):

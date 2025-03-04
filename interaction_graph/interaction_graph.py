@@ -92,29 +92,6 @@ class InteractionGraph:
             prefab_guids.append(instance.m_SourcePrefab.get("guid"))
         return prefab_guids
 
-    def get_interactive_uis(self):
-        results = []
-        prefab_files = self.get_prefabs_source_from_scene()
-        # Check each prefab's scripts for event trigger (m_Delegates)
-        for prefab_name, prefab_path in prefab_files.items():
-            prefab_doc = UnityDocument.load_yaml(prefab_path)
-            delegates = prefab_doc.filter(
-                class_names=("MonoBehaviour",), attributes=("m_Delegates",))
-        return results
-
-    def get_scene_uis(self):
-        '''
-        Get all the UI objects in the scene under test (based on m_Delegates)
-        '''
-        delegates = self.scene_doc.filter(
-            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
-        objects = []
-        for delegate in delegates:
-            object = self.get_entry_by_anchor(
-                delegate.m_GameObject.get("fileID"))
-            objects.append(object.m_Name)
-        return objects
-
     def get_interaction_scripts(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
@@ -183,6 +160,31 @@ class InteractionGraph:
                                 results[obj_type].append(name)
         return results
 
+    def get_interactive_uis(self):
+        uis = []
+        prefab_files = self.get_prefabs_source_from_scene()
+        # Check each prefab's scripts for event trigger (m_Delegates)
+        for prefab_name, prefab_path in prefab_files.items():
+            prefab_doc = UnityDocument.load_yaml(prefab_path)
+            delegates = prefab_doc.filter(class_names=(
+                "MonoBehaviour",), attributes=("m_Delegates",))
+            if len(delegates) > 0:
+                uis.append(prefab_name)
+        return uis
+
+    def get_scene_uis(self):
+        '''
+        Get all the UI objects in the scene under test (based on m_Delegates)
+        '''
+        uis = []
+        delegates = self.scene_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
+        for delegate in delegates:
+            object = self.get_entry_by_anchor(
+                delegate.m_GameObject.get("fileID"))
+            uis.append(object.m_Name)
+        return uis
+
     def get_prefab_instance_name(self, prefab_entry):
         for mod in prefab_entry.m_Modification["m_Modifications"]:
             if mod.get("propertyPath") == "m_Name":
@@ -196,10 +198,17 @@ class InteractionGraph:
         '''
         prefab_results = self.get_interactive_prefabs()
         scene_results = self.get_scene_interactives()
+        uis = self.get_interactive_uis()
+        uis += self.get_scene_uis()
         merged_results = {
-            'interactables': prefab_results['interactables'] + scene_results['interactables'],
+            'interactables': prefab_results['interactables'] + scene_results['interactables'] + uis,
             'interactors': prefab_results['interactors'] + scene_results['interactors']
         }
+        print(
+            f"Interactors: {merged_results['interactors']}, length: {len(merged_results['interactors'])}")
+        print(
+            f"Interactables: {prefab_results['interactables'] + scene_results['interactables']}, length: {len(prefab_results['interactables'] + scene_results['interactables'])}")
+        print(f"UIs: {uis}, length: {len(uis)}")
         return merged_results
 
     def build_graph(self):
@@ -223,6 +232,7 @@ class InteractionGraph:
         # print(self.get_interactive_prefabs())
         graph.build_graph()
         # print(self.get_scene_uis())
+        # print(self.get_interactive_uis())
 
 
 def parse_unity_file(filename):

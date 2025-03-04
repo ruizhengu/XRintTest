@@ -82,7 +82,7 @@ class InteractionGraph:
                     guid = self.get_file_guid(meta_file)
                     if guid in prefab_guids:
                         prefab_name = meta_file.stem
-                        prefab_files[prefab_name] = meta_file.parent / \
+                        prefab_files[prefab_name.replace(".prefab", "")] = meta_file.parent / \
                             prefab_name
         # Check each prefab's scripts for interactable/interactor components
         for prefab_name, prefab_path in prefab_files.items():
@@ -103,36 +103,53 @@ class InteractionGraph:
         '''
         Get the interactables and interactors in the scene under test
         '''
-        results = []
-        # Get interaction script guids and matching MonoBehaviours
-        interaction_script_guids = {
-            data["guid"] for _, data in self.interaction_scripts.items()}
+        results = {'interactables': [], 'interactors': []}
         scene_scripts = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Script",))
-        # Get interactive GO IDs and their prefab IDs
-        game_object_ids = [script.m_GameObject.get("fileID") for script in scene_scripts
-                           if script.m_Script.get("guid") in interaction_script_guids]
-        prefab_ids = []
-        for obj_id in game_object_ids:
-            if entry := self.get_entry_by_anchor(obj_id):
-                if prefab_id := entry.m_PrefabInstance.get("fileID"):
-                    prefab_ids.append(prefab_id)
-        # Get prefab names
-        for prefab_id in prefab_ids:
-            if entry := self.get_entry_by_anchor(prefab_id):
-                results.append(entry)
-                # for mod in entry.m_Modification["m_Modifications"]:
-                #     if mod.get("propertyPath") == "m_Name":
-                #         print(mod.get("value"))
+        # Map script guids to their type (interactable/interactor)
+        script_type_map = {}
+        for _, data in self.interaction_scripts.items():
+            guid = data["guid"]
+            if "Interactable" in str(data["file"]):
+                script_type_map[guid] = "interactables"
+            elif "Interactor" in str(data["file"]):
+                script_type_map[guid] = "interactors"
+        # Process each script and collect game object IDs by type
+        game_objects = {'interactables': [], 'interactors': []}
+        for script in scene_scripts:
+            guid = script.m_Script.get("guid")
+            if guid in script_type_map:
+                obj_type = script_type_map[guid]
+                game_objects[obj_type].append(
+                    script.m_GameObject.get("fileID"))
+        # Get prefab names for both types
+        for obj_type in ('interactables', 'interactors'):
+            for obj_id in game_objects[obj_type]:
+                if entry := self.get_entry_by_anchor(obj_id):
+                    if prefab_id := entry.m_PrefabInstance.get("fileID"):
+                        if prefab_entry := self.get_entry_by_anchor(prefab_id):
+                            if name := self.get_prefab_instance_name(prefab_entry):
+                                results[obj_type].append(name)
         return results
+
+    def get_prefab_instance_name(self, prefab_entry):
+        for mod in prefab_entry.m_Modification["m_Modifications"]:
+            if mod.get("propertyPath") == "m_Name":
+                return mod.get("value")
+        return None
 
     def get_interactors_interactables(self):
         '''
         Categorize scene interactives and interactive prefabs into interactables and interactors
         Returns: Dictionary with two lists - 'interactables' and 'interactors'
         '''
-        result = self.get_interactive_prefabs()
-        return result
+        prefab_results = self.get_interactive_prefabs()
+        scene_results = self.get_scene_interactives()
+        merged_results = {
+            'interactables': prefab_results['interactables'] + scene_results['interactables'],
+            'interactors': prefab_results['interactors'] + scene_results['interactors']
+        }
+        return merged_results
 
     def get_interactive_ui(self):
         # TODO: Need to get the interactive UI in the scene under test
@@ -200,14 +217,16 @@ class InteractionGraph:
         plt.show()
 
     def test(self):
-        interactive_prefabs = self.get_interactive_prefabs()
-        print(interactive_prefabs, len(interactive_prefabs["interactables"]), len(
-            interactive_prefabs["interactors"]))
+        # interactive_prefabs = self.get_interactive_prefabs()
+        # print(interactive_prefabs, len(interactive_prefabs["interactables"]), len(
+        #     interactive_prefabs["interactors"]))
         # scene_interactives = self.get_scene_interactives()
         # print(scene_interactives, len(scene_interactives))
-        # categorized = graph.get_interactors_interactables()
-        # print("Interactables:", len(categorized['interactables']))
-        # print("Interactors:", len(categorized['interactors']))
+        categorized = graph.get_interactors_interactables()
+        print("Interactables:", categorized['interactables'], len(
+            categorized['interactables']))
+        print("Interactors:", categorized['interactors'], len(
+            categorized['interactors']))
 
 
 def parse_unity_file(filename):

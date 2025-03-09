@@ -161,15 +161,37 @@ class InteractionGraph:
         return results
 
     def get_interactive_uis(self):
+        '''
+        Recursively search for UI objects in prefabs (m_Delegates)
+        '''
+        def has_delegates_in_prefab(prefab_path, processed):
+            '''
+            Recursive search method
+            '''
+            if prefab_path in processed:
+                return False
+            processed.add(prefab_path)
+            try:
+                prefab_doc = UnityDocument.load_yaml(prefab_path)
+                # Check for delegates in current prefab
+                if prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Delegates",)):
+                    return True
+                # Check nested prefabs
+                for instance in prefab_doc.filter(class_names=("PrefabInstance",), attributes=("m_SourcePrefab",)):
+                    if source_guid := instance.m_SourcePrefab.get("guid"):
+                        for meta_file in self.get_assets("*.prefab.meta"):
+                            if self.get_file_guid(meta_file) == source_guid:
+                                nested_path = meta_file.parent / meta_file.stem
+                                if has_delegates_in_prefab(nested_path, processed):
+                                    return True
+            except Exception as e:
+                print(f"Error processing prefab {prefab_path}: {e}")
+            return False
         uis = []
-        prefab_files = self.get_prefabs_source_from_scene()
-        # Check each prefab's scripts for event trigger (m_Delegates)
-        for prefab_name, prefab_path in prefab_files.items():
-            prefab_doc = UnityDocument.load_yaml(prefab_path)
-            delegates = prefab_doc.filter(class_names=(
-                "MonoBehaviour",), attributes=("m_Delegates",))
-            if len(delegates) > 0:
-                uis.append(prefab_name)
+        processed_prefabs = set()
+        for name, path in self.get_prefabs_source_from_scene().items():
+            if has_delegates_in_prefab(path, processed_prefabs):
+                uis.append(name)
         return uis
 
     def get_scene_uis(self):
@@ -230,8 +252,8 @@ class InteractionGraph:
 
     def test(self):
         # print(self.get_interactive_prefabs())
-        graph.build_graph()
-        # print(self.get_scene_uis())
+        # graph.build_graph()
+        print(self.get_scene_uis())
         # print(self.get_interactive_uis())
 
 

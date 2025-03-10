@@ -58,7 +58,7 @@ class InteractionGraph:
         ]
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
-        # self.interaction_scripts = self.get_interaction_scripts()
+        self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
 
     @cache_result
     def get_assets(self, suffix="*.meta"):
@@ -101,7 +101,6 @@ class InteractionGraph:
         --- !u!1660057539 &9223372036854775807
         SceneRoots:
         ...
-
         entry.anchor == 9223372036854775807
         entry.__class__.__name__ == SceneRoots
         '''
@@ -138,15 +137,43 @@ class InteractionGraph:
         return prefab_guids
 
     @cache_result
+    def is_custom_xr_interaction(self, cs_file_path):
+        '''
+        Check if a C# script inherits from XRBaseInteractable or XRGrabInteractable
+        and located in the custom script path
+        '''
+        # First check if file is in custom script path
+        if not str(cs_file_path).startswith(str(self.custom_script_path)):
+            return False
+        target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
+        try:
+            with open(cs_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                class_pattern = r'class\s+\w+\s*:\s*([\w,\s]+)'
+                match = re.search(class_pattern, content)
+                if match:
+                    inheritance = match.group(1)
+                    inherited_classes = {cls.strip()
+                                         for cls in inheritance.split(',')}
+                    # Check if any target class is in the inheritance
+                    return bool(inherited_classes & target_classes)
+        except Exception as e:
+            print(f"Error reading file {cs_file_path}: {e}")
+        return False
+
+    @cache_result
     def get_interaction_scripts(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
         Based on .meta files and record the guid of the script
         '''
         scripts = {}
+        # for asset in self.get_assets("*.cs.*"):
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
-            if (("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name and "Affordance" not in file_name:
+            # print(asset.parent / asset.stem)
+            # break
+            if ("Interactable" in file_name or "Interactor" in file_name or self.is_custom_xr_interaction(asset.parent / asset.stem)) and "deprecated" not in file_name and "Affordance" not in file_name:
                 if guid := self.get_file_guid(asset):
                     scripts[file_name] = {
                         "guid": guid, "file": asset}
@@ -400,5 +427,6 @@ if __name__ == '__main__':
     sut = root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    graph.test()
+    # graph.test()
     # print(graph.get_asset_name_by_guid("445f7411c27de9943b49bb5c4ca806ce"))
+    print(graph.get_interaction_scripts())

@@ -173,10 +173,11 @@ class InteractionGraph:
             file_name = asset.stem  # Get the file name without the suffix
             # print(asset.parent / asset.stem)
             # break
-            if ("Interactable" in file_name or "Interactor" in file_name or self.is_custom_xr_interaction(asset.parent / asset.stem)) and "deprecated" not in file_name and "Affordance" not in file_name:
+            cs_file = asset.parent / asset.stem
+            if ("Interactable" in file_name or "Interactor" in file_name or self.is_custom_xr_interaction(cs_file)) and "deprecated" not in file_name and "Affordance" not in file_name:
                 if guid := self.get_file_guid(asset):
                     scripts[file_name] = {
-                        "guid": guid, "file": asset}
+                        "guid": guid, "file": cs_file}
         return scripts
 
     def _process_prefab_scripts(self, prefab_doc, prefab_name):
@@ -189,7 +190,7 @@ class InteractionGraph:
                    prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
         for script_name, script_data in self.get_interaction_scripts().items():
             if script_data["guid"] in scripts:
-                if "Interactable" in script_name:
+                if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):
                     results["interactables"].add(prefab_name)
                 elif "Interactor" in script_name:
                     results["interactors"].add(prefab_name)
@@ -258,11 +259,11 @@ class InteractionGraph:
             class_names=("MonoBehaviour",), attributes=("m_Script",))
         # Map script guids to their type (interactable/interactor)
         script_type_map = {}
-        for _, data in self.get_interaction_scripts().items():
-            guid = data["guid"]
-            if "Interactable" in str(data["file"]):
+        for script_name, script_data in self.get_interaction_scripts().items():
+            guid = script_data["guid"]
+            if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):
                 script_type_map[guid] = "interactables"
-            elif "Interactor" in str(data["file"]):
+            elif "Interactor" in script_name:
                 script_type_map[guid] = "interactors"
         # Process each script and collect game object IDs by type
         game_objects = {'interactables': set(), 'interactors': set()}
@@ -427,6 +428,6 @@ if __name__ == '__main__':
     sut = root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    # graph.test()
+    graph.test()
     # print(graph.get_asset_name_by_guid("445f7411c27de9943b49bb5c4ca806ce"))
-    print(graph.get_interaction_scripts())
+    # print(graph.get_interaction_scripts())

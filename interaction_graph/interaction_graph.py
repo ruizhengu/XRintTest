@@ -146,7 +146,7 @@ class InteractionGraph:
         scripts = {}
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
-            if (("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name:
+            if (("Interactable" in file_name or "Interactor" in file_name)) and "deprecated" not in file_name and "Affordance" not in file_name:
                 if guid := self.get_file_guid(asset):
                     scripts[file_name] = {
                         "guid": guid, "file": asset}
@@ -226,7 +226,7 @@ class InteractionGraph:
         '''
         Get the interactables and interactors in the scene under test
         '''
-        results = {'interactables': [], 'interactors': []}
+        results = {'interactables': set(), 'interactors': set()}
         scene_scripts = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Script",))
         # Map script guids to their type (interactable/interactor)
@@ -238,12 +238,12 @@ class InteractionGraph:
             elif "Interactor" in str(data["file"]):
                 script_type_map[guid] = "interactors"
         # Process each script and collect game object IDs by type
-        game_objects = {'interactables': [], 'interactors': []}
+        game_objects = {'interactables': set(), 'interactors': set()}
         for script in scene_scripts:
             guid = script.m_Script.get("guid")
             if guid in script_type_map:
                 obj_type = script_type_map[guid]
-                game_objects[obj_type].append(
+                game_objects[obj_type].add(
                     script.m_GameObject.get("fileID"))
         # Get prefab names for both types
         for obj_type in ('interactables', 'interactors'):
@@ -252,7 +252,7 @@ class InteractionGraph:
                     if prefab_id := entry.m_PrefabInstance.get("fileID"):
                         if prefab_entry := self.get_entry_by_anchor(prefab_id):
                             if name := self.get_prefab_instance_name(prefab_entry):
-                                results[obj_type].append(name)
+                                results[obj_type].add(name)
         return results
 
     def get_interactive_uis(self):
@@ -281,24 +281,24 @@ class InteractionGraph:
             except Exception as e:
                 print(f"Error processing prefab {prefab_path}: {e}")
             return False
-        uis = []
+        uis = set()
         processed_prefabs = set()
         for name, path in self.get_prefabs_source_from_scene().items():
             if has_delegates_in_prefab(path, processed_prefabs):
-                uis.append(name)
+                uis.add(name)
         return uis
 
     def get_scene_uis(self):
         '''
         Get all the UI objects in the scene under test (based on m_Delegates)
         '''
-        uis = []
+        uis = set()
         delegates = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Delegates",))
         for delegate in delegates:
             object = self.get_entry_by_anchor(
                 delegate.m_GameObject.get("fileID"))
-            uis.append(object.m_Name)
+            uis.add(object.m_Name)
         return uis
 
     def get_prefab_instance_name(self, prefab_entry):
@@ -307,6 +307,7 @@ class InteractionGraph:
                 return mod.get("value")
         return None
 
+    @log_execution_time
     def get_interactors_interactables(self):
         '''
         Categorise scene interactives and interactive prefabs into interactables and interactors
@@ -315,15 +316,15 @@ class InteractionGraph:
         prefab_results = self.get_interactive_prefabs()
         scene_results = self.get_scene_interactives()
         uis = self.get_interactive_uis()
-        uis += self.get_scene_uis()
+        uis.update(self.get_scene_uis())
         merged_results = {
-            'interactables': prefab_results['interactables'] + scene_results['interactables'] + uis,
-            'interactors': prefab_results['interactors'] + scene_results['interactors']
+            'interactors': prefab_results['interactors'].union(scene_results['interactors']),
+            'interactables': prefab_results['interactables'].union(scene_results['interactables']).union(uis)
         }
         print(
             f"Interactors: {merged_results['interactors']}, length: {len(merged_results['interactors'])}")
         print(
-            f"Interactables: {prefab_results['interactables'] + scene_results['interactables']}, length: {len(prefab_results['interactables'] + scene_results['interactables'])}")
+            f"Interactables: {merged_results['interactables'].difference(uis)}, length: {len(merged_results['interactables'].difference(uis))}")
         print(f"UIs: {uis}, length: {len(uis)}")
         return merged_results
 
@@ -347,10 +348,11 @@ class InteractionGraph:
 
     def test(self):
         interactive_prefabs = self.get_interactive_prefabs()
-        print(interactive_prefabs['interactables'],
-              len(interactive_prefabs['interactables']))
-        print(interactive_prefabs['interactors'],
-              len(interactive_prefabs['interactors']))
+        # print(interactive_prefabs['interactables'],
+        #       len(interactive_prefabs['interactables']))
+        # print(interactive_prefabs['interactors'],
+        #       len(interactive_prefabs['interactors']))
+        self.get_interactors_interactables()
         # graph.build_graph()
         # print(self.get_scene_uis())
         # print(self.get_interactive_uis())

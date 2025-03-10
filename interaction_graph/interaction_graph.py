@@ -4,6 +4,49 @@ from unityparser import UnityDocument
 import networkx as nx
 import matplotlib.pyplot as plt
 import time
+import functools
+
+
+def log_execution_time(func):
+    '''
+    Decorator to log the execution time of a function
+    '''
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Execution time: {end_time - start_time} seconds")
+        return result
+    return wrapper
+
+
+def cache_result(func):
+    '''
+    Decorator to cache the result of a function.
+    Creates a cache dictionary for each decorated function to store results.
+    The cache is stored as an instance attribute on the class.
+    Args:
+        func: The function to be decorated
+    Returns:
+        wrapper: The wrapped function that implements caching
+    '''
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Create unique cache attribute name for this function
+        cache_attr = f"_{func.__name__}_cache"
+        # Create unique key based on args and kwargs
+        cache_key = str(args) + str(kwargs)
+        # Initialize cache dict if it doesn't exist
+        if not hasattr(self, cache_attr):
+            setattr(self, cache_attr, {})
+        # Use *getattr* instead of *setattr* to add a new key to the cache
+        cache = getattr(self, cache_attr)
+        # Return cached result if it exists, otherwise compute and cache
+        if cache_key not in cache:
+            cache[cache_key] = func(self, *args, **kwargs)
+        return cache[cache_key]
+    return wrapper
 
 
 class InteractionGraph:
@@ -17,6 +60,7 @@ class InteractionGraph:
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.interaction_scripts = self.get_interaction_scripts()
 
+    @cache_result
     def get_assets(self, suffix=".meta"):
         '''
         Get all assets based on the asset paths, default to .meta files
@@ -81,6 +125,7 @@ class InteractionGraph:
                     prefab_name
         return prefab_files
 
+    @cache_result
     def get_scene_prefabs(self):
         '''
         Get all the prefab instances in the scene under test
@@ -233,8 +278,9 @@ class InteractionGraph:
         print(f"UIs: {uis}, length: {len(uis)}")
         return merged_results
 
+    @log_execution_time
     def build_graph(self):
-        interactives = graph.get_interactors_interactables()
+        interactives = self.get_interactors_interactables()
         G = nx.Graph()
         edge_labels = {}
         for interactor in interactives['interactors']:
@@ -248,12 +294,12 @@ class InteractionGraph:
         nx.draw_networkx(G, pos=nx.spring_layout(G), with_labels=True)
         nx.draw_networkx_edge_labels(
             G, pos=nx.spring_layout(G), edge_labels=edge_labels)
-        plt.show()
+        # plt.show()
 
     def test(self):
         # print(self.get_interactive_prefabs())
-        # graph.build_graph()
-        print(self.get_scene_uis())
+        graph.build_graph()
+        # print(self.get_scene_uis())
         # print(self.get_interactive_uis())
 
 

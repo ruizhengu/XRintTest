@@ -140,7 +140,7 @@ class InteractionGraph:
     def is_custom_xr_interaction(self, cs_file_path):
         '''
         Check if a C# script inherits from XRBaseInteractable or XRGrabInteractable
-        and located in the custom script path
+        and located in the custom script path. Returns the matching classes if found.
         '''
         # First check if file is in custom script path
         if not str(cs_file_path).startswith(str(self.custom_script_path)):
@@ -155,8 +155,9 @@ class InteractionGraph:
                     inheritance = match.group(1)
                     inherited_classes = {cls.strip()
                                          for cls in inheritance.split(',')}
-                    # Check if any target class is in the inheritance
-                    return bool(inherited_classes & target_classes)
+                    # Return the matching classes if any exist
+                    matching_classes = inherited_classes & target_classes
+                    return matching_classes if matching_classes else False
         except Exception as e:
             print(f"Error reading file {cs_file_path}: {e}")
         return False
@@ -166,18 +167,41 @@ class InteractionGraph:
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
         Based on .meta files and record the guid of the script
+        Returns dictionary with:
+            - guid: file guid
+            - file: path to cs file
+            - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
         '''
         scripts = {}
-        # for asset in self.get_assets("*.cs.*"):
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
-            # print(asset.parent / asset.stem)
-            # break
             cs_file = asset.parent / asset.stem
-            if ("Interactable" in file_name or "Interactor" in file_name or self.is_custom_xr_interaction(cs_file)) and "deprecated" not in file_name and "Affordance" not in file_name:
+            # Skip deprecated and affordance files
+            if "deprecated" in file_name or "Affordance" in file_name:
+                continue
+            if "Interactable" in file_name or "Interactor" in file_name:
+                if guid := self.get_file_guid(asset):
+                    script_data = {
+                        "guid": guid,
+                        "file": cs_file
+                    }
+                    # Determine interaction type
+                    if "XRBaseInteractable" in file_name:
+                        script_data["type"] = "activate"
+                    elif "XRGrabInteractable" in file_name:
+                        script_data["type"] = "select"
+                    else:
+                        # TODO: check if it is custom interaction
+                        script_data["type"] = "TODO"
+                    scripts[file_name] = script_data
+            # Check custom XR interactions
+            elif custom_type := self.is_custom_xr_interaction(cs_file):
                 if guid := self.get_file_guid(asset):
                     scripts[file_name] = {
-                        "guid": guid, "file": cs_file}
+                        "guid": guid,
+                        "file": cs_file,
+                        "type": "activate*" if "XRBaseInteractable" in custom_type else "select*"
+                    }
         return scripts
 
     def _process_prefab_scripts(self, prefab_doc, prefab_name):
@@ -191,7 +215,8 @@ class InteractionGraph:
         for script_name, script_data in self.get_interaction_scripts().items():
             if script_data["guid"] in scripts:
                 if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):
-                    results["interactables"].add(prefab_name)
+                    results["interactables"].add(
+                        (prefab_name, script_data["type"]))
                 elif "Interactor" in script_name:
                     results["interactors"].add(prefab_name)
                 break
@@ -221,24 +246,21 @@ class InteractionGraph:
                 return {'interactables': set(), 'interactors': set()}
             processed.add(prefab_path)
             results = {'interactables': set(), 'interactors': set()}
-            try:
-                prefab_doc = UnityDocument.load_yaml(prefab_path)
-                # Process current prefab's scripts
-                current_results = self._process_prefab_scripts(
-                    prefab_doc, prefab_path.stem)
+            prefab_doc = UnityDocument.load_yaml(prefab_path)
+            # Process current prefab's scripts
+            current_results = self._process_prefab_scripts(
+                prefab_doc, prefab_path.stem)
+            results["interactables"].update(
+                current_results["interactables"])
+            results["interactors"].update(current_results["interactors"])
+            # Process nested prefabs
+            for nested_path in self._get_nested_prefab_paths(prefab_doc):
+                nested_results = find_interactives_in_prefab(
+                    nested_path, processed)
                 results["interactables"].update(
-                    current_results["interactables"])
-                results["interactors"].update(current_results["interactors"])
-                # Process nested prefabs
-                for nested_path in self._get_nested_prefab_paths(prefab_doc):
-                    nested_results = find_interactives_in_prefab(
-                        nested_path, processed)
-                    results["interactables"].update(
-                        nested_results["interactables"])
-                    results["interactors"].update(
-                        nested_results["interactors"])
-            except Exception as e:
-                print(f"Error processing prefab {prefab_path}: {e}")
+                    nested_results["interactables"])
+                results["interactors"].update(
+                    nested_results["interactors"])
             return results
         final_results = {'interactables': set(), 'interactors': set()}
         processed_prefabs = set()
@@ -259,6 +281,7 @@ class InteractionGraph:
             class_names=("MonoBehaviour",), attributes=("m_Script",))
         # Map script guids to their type (interactable/interactor)
         script_type_map = {}
+        # TODO: add interaction types
         for script_name, script_data in self.get_interaction_scripts().items():
             guid = script_data["guid"]
             if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):

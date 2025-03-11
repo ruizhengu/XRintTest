@@ -378,7 +378,14 @@ class InteractionGraph:
         '''
         Check activate interactions that are supported in select interactions
         '''
-        pass
+        # TODO: check if is interactable first, then check if it has activate interaction
+        for _, prefab_path in self.get_prefabs_source_from_scene().items():
+            doc = UnityDocument.load_yaml(prefab_path)
+            if entries := doc.filter(class_names=("MonoBehaviour",), attributes=("m_Activated",)):
+                for entry in entries:
+                    if entry.m_Activated.get("m_PersistentCalls").get("m_Calls"):
+                        print(entry.m_Activated.get(
+                            "m_PersistentCalls").get("m_Calls"))  # TODO: check if is null
 
     @log_execution_time
     def get_interactors_interactables(self):
@@ -419,15 +426,13 @@ class InteractionGraph:
         # plt.show()
 
     def test(self):
-        interactive_prefabs = self.get_interactive_prefabs()
+        # interactive_prefabs = self.get_interactive_prefabs()
         # print(interactive_prefabs['interactables'],
         #       len(interactive_prefabs['interactables']))
         # print(interactive_prefabs['interactors'],
         #       len(interactive_prefabs['interactors']))
-        self.get_interactors_interactables()
-        # graph.build_graph()
-        # print(self.get_scene_uis())
-        # print(self.get_interactive_uis())
+        # self.get_interactors_interactables()
+        self.get_precondition_interactions()
 
 
 if __name__ == '__main__':
@@ -439,5 +444,5 @@ if __name__ == '__main__':
 
     graph = InteractionGraph(root, sut)
     graph.test()
-    # print(graph.get_asset_name_by_guid("445f7411c27de9943b49bb5c4ca806ce"))
+    # print(graph.get_asset_name_by_guid("3549fdaf258e11846b85a316c16c699c"))
     # print(graph.get_interaction_scripts())

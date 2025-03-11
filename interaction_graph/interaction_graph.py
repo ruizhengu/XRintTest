@@ -335,6 +335,7 @@ class InteractionGraph:
         '''
         Get all ui objects from the scene and prefabs
         '''
+        default_ui_interaction_type = "activate"  # set the default interaction types for all uis to "activate"
         # scene ui objects
         scene_uis = set()
         delegates = self.scene_doc.filter(
@@ -342,7 +343,7 @@ class InteractionGraph:
         for delegate in delegates:
             object = self.get_entry_by_anchor(
                 delegate.m_GameObject.get("fileID"))
-            scene_uis.add(object.m_Name)
+            scene_uis.add((object.m_Name, default_ui_interaction_type))
 
         def has_delegates_in_prefab(prefab_path, processed):
             '''
@@ -370,8 +371,14 @@ class InteractionGraph:
         processed_prefabs = set()
         for name, path in self.get_prefabs_source_from_scene().items():
             if has_delegates_in_prefab(path, processed_prefabs):
-                prefab_uis.add(name)
+                prefab_uis.add((name, default_ui_interaction_type))
         return scene_uis.union(prefab_uis)
+
+    def get_precondition_interactions(self):
+        '''
+        Check activate interactions that are supported in select interactions
+        '''
+        pass
 
     @log_execution_time
     def get_interactors_interactables(self):
@@ -421,40 +428,6 @@ class InteractionGraph:
         # graph.build_graph()
         # print(self.get_scene_uis())
         # print(self.get_interactive_uis())
-
-
-def parse_unity_file(filename):
-    """
-    Parses a Unity .unity file (in YAML format) and extracts each object based on header lines.
-    Returns a list of dictionaries, each containing 'type', 'id', and 'content' (a list of lines).
-    """
-    objects = []
-    current_object = None
-    # Regex to match lines like: --- !u!222 &3409566789090859841
-    header_regex = re.compile(r'^--- !u!(\d+)\s+&(\d+)$')
-    with open(filename, 'r', encoding='utf-8') as f:
-        for line in f:
-            stripped_line = line.strip()
-            header_match = header_regex.match(stripped_line)
-            if header_match:
-                # If there's an object being built, add it to the list
-                if current_object is not None:
-                    objects.append(current_object)
-                # Create a new object based on the header
-                obj_type = header_match.group(1)
-                obj_id = header_match.group(2)
-                current_object = {
-                    'type': obj_type,
-                    'id': obj_id,
-                    'content': []
-                }
-            elif current_object is not None:
-                # Append the line to the current object's content
-                current_object['content'].append(line.rstrip('\n'))
-    # Add the last object if any
-    if current_object is not None:
-        objects.append(current_object)
-    return objects
 
 
 if __name__ == '__main__':

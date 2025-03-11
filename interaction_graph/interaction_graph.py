@@ -192,7 +192,7 @@ class InteractionGraph:
                         script_data["type"] = "select"
                     else:
                         # TODO: check if it is custom interaction
-                        script_data["type"] = "TODO"
+                        script_data["type"] = "CUSTOM-TODO"
                     scripts[file_name] = script_data
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
@@ -272,47 +272,81 @@ class InteractionGraph:
             final_results["interactors"].update(results["interactors"])
         return final_results
 
+    def _get_prefab_name(self, obj_id):
+        '''Helper to get prefab name from object ID'''
+        if entry := self.get_entry_by_anchor(obj_id):
+            if prefab_id := entry.m_PrefabInstance.get("fileID"):
+                if prefab_entry := self.get_entry_by_anchor(prefab_id):
+                    for mod in prefab_entry.m_Modification["m_Modifications"]:
+                        if mod.get("propertyPath") == "m_Name":
+                            return mod.get("value")
+        return None
+
+    def _get_script_mappings(self):
+        '''Helper to map script GUIDs to their types'''
+        mappings = {'type_map': {}, 'interaction_types': {}}
+
+        for script_name, data in self.get_interaction_scripts().items():
+            guid = data["guid"]
+            if "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
+                mappings['type_map'][guid] = "interactables"
+                mappings['interaction_types'][guid] = data["type"]
+            elif "Interactor" in script_name:
+                mappings['type_map'][guid] = "interactors"
+        return mappings
+
+    def _collect_interactive_objects(self, scene_scripts, script_mappings):
+        '''Helper to collect game objects with interaction scripts'''
+        game_objects = {'interactables': {}, 'interactors': {}}
+
+        for script in scene_scripts:
+            guid = script.m_Script.get("guid")
+            if guid in script_mappings['type_map']:
+                obj_type = script_mappings['type_map'][guid]
+                obj_id = script.m_GameObject.get("fileID")
+                interaction_type = script_mappings['interaction_types'].get(
+                    guid)
+                game_objects[obj_type][obj_id] = interaction_type
+
+        return game_objects
+
     def get_scene_interactives(self):
         '''
         Get the interactables and interactors in the scene under test
+        Returns: Dictionary with sets of (name, type) tuples for interactables and interactors
         '''
         results = {'interactables': set(), 'interactors': set()}
-        scene_scripts = self.scene_doc.filter(
-            class_names=("MonoBehaviour",), attributes=("m_Script",))
-        # Map script guids to their type (interactable/interactor)
-        script_type_map = {}
-        # TODO: add interaction types
-        for script_name, script_data in self.get_interaction_scripts().items():
-            guid = script_data["guid"]
-            if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):
-                script_type_map[guid] = "interactables"
-            elif "Interactor" in script_name:
-                script_type_map[guid] = "interactors"
-        # Process each script and collect game object IDs by type
-        game_objects = {'interactables': set(), 'interactors': set()}
-        for script in scene_scripts:
-            guid = script.m_Script.get("guid")
-            if guid in script_type_map:
-                obj_type = script_type_map[guid]
-                game_objects[obj_type].add(
-                    script.m_GameObject.get("fileID"))
-        # Get prefab names for both types
+        # Map script GUIDs to their types and interaction types
+        script_mappings = self._get_script_mappings()
+        # Get game objects with interaction scripts
+        game_objects = self._collect_interactive_objects(
+            self.scene_doc.filter(class_names=(
+                "MonoBehaviour",), attributes=("m_Script",)),
+            script_mappings
+        )
+        # Add prefab names and types to results
         for obj_type in ('interactables', 'interactors'):
-            for obj_id in game_objects[obj_type]:
-                if entry := self.get_entry_by_anchor(obj_id):
-                    if prefab_id := entry.m_PrefabInstance.get("fileID"):
-                        if prefab_entry := self.get_entry_by_anchor(prefab_id):
-                            if name := self.get_prefab_instance_name(prefab_entry):
-                                results[obj_type].add(name)
+            for obj_id, interaction_type in game_objects[obj_type].items():
+                if prefab_name := self._get_prefab_name(obj_id):
+                    results[obj_type].add((prefab_name, interaction_type))
         return results
 
-    def get_interactive_uis(self):
+    def get_ui_objects(self):
         '''
-        Recursively search for UI objects in prefabs (m_Delegates)
+        Get all ui objects from the scene and prefabs
         '''
+        # scene ui objects
+        scene_uis = set()
+        delegates = self.scene_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
+        for delegate in delegates:
+            object = self.get_entry_by_anchor(
+                delegate.m_GameObject.get("fileID"))
+            scene_uis.add(object.m_Name)
+
         def has_delegates_in_prefab(prefab_path, processed):
             '''
-            Recursive search method
+            Recursive search method to get nested prefab ui objects
             '''
             if prefab_path in processed:
                 return False
@@ -321,7 +355,6 @@ class InteractionGraph:
                 prefab_doc = UnityDocument.load_yaml(prefab_path)
                 if prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Delegates",)):
                     return True
-                # Check nested prefabs
                 for instance in prefab_doc.filter(class_names=("PrefabInstance",), attributes=("m_SourcePrefab",)):
                     if source_guid := instance.m_SourcePrefab.get("guid"):
                         for meta_file in self.get_assets("*.prefab.meta"):
@@ -332,31 +365,13 @@ class InteractionGraph:
             except Exception as e:
                 print(f"Error processing prefab {prefab_path}: {e}")
             return False
-        uis = set()
+        # prefab ui objects
+        prefab_uis = set()
         processed_prefabs = set()
         for name, path in self.get_prefabs_source_from_scene().items():
             if has_delegates_in_prefab(path, processed_prefabs):
-                uis.add(name)
-        return uis
-
-    def get_scene_uis(self):
-        '''
-        Get all the UI objects in the scene under test (based on m_Delegates)
-        '''
-        uis = set()
-        delegates = self.scene_doc.filter(
-            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
-        for delegate in delegates:
-            object = self.get_entry_by_anchor(
-                delegate.m_GameObject.get("fileID"))
-            uis.add(object.m_Name)
-        return uis
-
-    def get_prefab_instance_name(self, prefab_entry):
-        for mod in prefab_entry.m_Modification["m_Modifications"]:
-            if mod.get("propertyPath") == "m_Name":
-                return mod.get("value")
-        return None
+                prefab_uis.add(name)
+        return scene_uis.union(prefab_uis)
 
     @log_execution_time
     def get_interactors_interactables(self):
@@ -366,8 +381,7 @@ class InteractionGraph:
         '''
         prefab_results = self.get_interactive_prefabs()
         scene_results = self.get_scene_interactives()
-        uis = self.get_interactive_uis()
-        uis.update(self.get_scene_uis())
+        uis = self.get_ui_objects()
         merged_results = {
             'interactors': prefab_results['interactors'].union(scene_results['interactors']),
             'interactables': prefab_results['interactables'].union(scene_results['interactables']).union(uis)

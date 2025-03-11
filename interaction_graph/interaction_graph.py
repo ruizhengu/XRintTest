@@ -410,20 +410,41 @@ class InteractionGraph:
     @log_execution_time
     def build_graph(self):
         interactives = self.get_interactors_interactables()
-        G = nx.Graph()
+        G = nx.MultiGraph()
         edge_labels = {}
         for interactor in interactives['interactors']:
             G.add_node(interactor)
-        event_count = 1
-        for interactable in interactives['interactables']:
+            break
+        for interactable, interaction_type in interactives['interactables']:
             G.add_node(interactable)
-            G.add_edge(interactor, interactable)
-            edge_labels[(interactor, interactable)] = f"e_{event_count}"
-            event_count += 1
-        nx.draw_networkx(G, pos=nx.spring_layout(G), with_labels=True)
-        nx.draw_networkx_edge_labels(
-            G, pos=nx.spring_layout(G), edge_labels=edge_labels)
-        # plt.show()
+
+            interaction_types = interaction_type.split("+")
+            for type in interaction_types:
+                edge_key = G.add_edge(interactor, interactable)
+                edge_labels[(interactor, interactable, edge_key)] = type
+        pos = nx.spring_layout(G)
+        # Draw nodes
+        nx.draw_networkx_nodes(G, pos)
+        nx.draw_networkx_labels(G, pos)
+        # Draw edges with different colors for different interaction types
+        colors = {
+            'select': 'red',
+            'activate': 'blue',
+            'select*': 'darkred',
+            'activate*': 'darkblue',
+            'CUSTOM-TODO': 'purple'
+        }
+        # Draw edges and labels separately for each interaction type
+        for (u, v, k), label in edge_labels.items():
+            edge_color = colors.get(label, 'gray')
+            # Draw single edge
+            nx.draw_networkx_edges(
+                G, pos, edgelist=[(u, v)], edge_color=edge_color)
+            # Add edge label
+            edge_labels_dict = {(u, v): label}
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels_dict)
+        # plt.axis('off')
+        plt.show()
 
     def test(self):
         # interactive_prefabs = self.get_interactive_prefabs()
@@ -431,7 +452,8 @@ class InteractionGraph:
         #       len(interactive_prefabs['interactables']))
         # print(interactive_prefabs['interactors'],
         #       len(interactive_prefabs['interactors']))
-        self.get_interactors_interactables()
+        # self.get_interactors_interactables()
+        self.build_graph()
 
 
 if __name__ == '__main__':

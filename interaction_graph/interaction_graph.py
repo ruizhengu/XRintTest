@@ -204,22 +204,35 @@ class InteractionGraph:
                     }
         return scripts
 
+    def _has_precondition(self, prefab_doc):
+        '''
+        Check if select interactions also supported activate interactions (m_Activated in MonoBehaviour)
+        '''
+        for entry in prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Activated",)):
+            if calls := entry.m_Activated.get("m_PersistentCalls", {}).get("m_Calls"):
+                if calls:  # If m_Calls is not empty
+                    return True
+        return False
+
     def _process_prefab_scripts(self, prefab_doc, prefab_name):
         '''
         Helper method to process scripts in a prefab and categorize them
         Returns: Dictionary with sets of interactables and interactors
         '''
         results = {'interactables': set(), 'interactors': set()}
-        scripts = {script.m_Script.get("guid") for script in
-                   prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
-        for script_name, script_data in self.get_interaction_scripts().items():
-            if script_data["guid"] in scripts:
-                if "Interactable" in script_name or self.is_custom_xr_interaction(script_data["file"]):
-                    results["interactables"].add(
-                        (prefab_name, script_data["type"]))
-                elif "Interactor" in script_name:
-                    results["interactors"].add(prefab_name)
-                break
+        script_guids = {script.m_Script.get("guid") for script in
+                        prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
+        for script_name, data in self.get_interaction_scripts().items():
+            if data["guid"] not in script_guids:
+                continue
+            if "Interactor" in script_name:
+                results["interactors"].add(prefab_name)
+            elif "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
+                interaction_type = data["type"]
+                if self._has_precondition(prefab_doc):
+                    interaction_type += "+activate"
+                results["interactables"].add((prefab_name, interaction_type))
+            break
         return results
 
     def _get_nested_prefab_paths(self, prefab_doc):
@@ -374,19 +387,6 @@ class InteractionGraph:
                 prefab_uis.add((name, default_ui_interaction_type))
         return scene_uis.union(prefab_uis)
 
-    def get_precondition_interactions(self):
-        '''
-        Check activate interactions that are supported in select interactions
-        '''
-        # TODO: check if is interactable first, then check if it has activate interaction
-        for _, prefab_path in self.get_prefabs_source_from_scene().items():
-            doc = UnityDocument.load_yaml(prefab_path)
-            if entries := doc.filter(class_names=("MonoBehaviour",), attributes=("m_Activated",)):
-                for entry in entries:
-                    if entry.m_Activated.get("m_PersistentCalls").get("m_Calls"):
-                        print(entry.m_Activated.get(
-                            "m_PersistentCalls").get("m_Calls"))  # TODO: check if is null
-
     @log_execution_time
     def get_interactors_interactables(self):
         '''
@@ -431,8 +431,7 @@ class InteractionGraph:
         #       len(interactive_prefabs['interactables']))
         # print(interactive_prefabs['interactors'],
         #       len(interactive_prefabs['interactors']))
-        # self.get_interactors_interactables()
-        self.get_precondition_interactions()
+        self.get_interactors_interactables()
 
 
 if __name__ == '__main__':

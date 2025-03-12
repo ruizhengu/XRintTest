@@ -154,7 +154,8 @@ class InteractionGraph:
             if guid in asset_prefab_guids:
                 # Use the recorded file_name
                 prefab_name = Path(asset_prefab_guids[guid]).stem
-                interaction_layer = self.get_interaction_layer(instance)
+                interaction_layer = self.get_interaction_layer(
+                    instance, asset_prefab_guids[guid])
                 prefab = Prefab(name=prefab_name,
                                 guid=guid,
                                 type=Type.SCENE,
@@ -162,7 +163,7 @@ class InteractionGraph:
                 prefabs.add(prefab)
         return prefabs
 
-    def get_interaction_layer(self, instance):
+    def get_interaction_layer(self, instance, prefab_source):
         '''
         Get the interaction layer of the prefab instance
         '''
@@ -171,7 +172,10 @@ class InteractionGraph:
         for mod in instance.m_Modification["m_Modifications"]:
             if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
                 return mod.get("value")
-        return None
+        # TODO: If there are no modifications related to the interaction layer,
+        # check the prefab source
+        # Assume the default interaction layer is -1
+        return -1
 
     @cache_result
     def get_scene_prefabs(self):
@@ -517,6 +521,6 @@ if __name__ == '__main__':
 
     graph = InteractionGraph(root, sut)
     # graph.test()
-    # print(graph.get_asset_name_by_guid("3549fdaf258e11846b85a316c16c699c"))
+    # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
     for prefab in graph.get_prefabs():
         print(prefab)

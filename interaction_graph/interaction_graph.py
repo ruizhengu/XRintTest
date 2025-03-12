@@ -102,7 +102,7 @@ class InteractionGraph:
             guid_match = re.search(r'guid: (\w+)', content)
             if guid_match:
                 found_guid = guid_match.group(1)
-                return file_name, found_guid
+                return found_guid
         return None
 
     def get_entry_by_anchor(self, anchor):
@@ -123,29 +123,14 @@ class InteractionGraph:
 
     def get_prefabs_source_from_scene(self):
         '''
-        Get the prefab source according to the prefabs in the scene
-        '''
-        prefab_guids = set(self.get_scene_prefabs())
-        prefab_files = {}
-        # Find prefab source files that match scene prefab GUIDs
-        for meta_file in self.get_assets("*.prefab.meta"):
-            guid = self.get_file_guid(meta_file)
-            if guid in prefab_guids:
-                prefab_name = meta_file.stem
-                prefab_files[prefab_name.replace(".prefab", "")] = meta_file.parent / \
-                    prefab_name
-        return prefab_files
-
-    def get_prefabs(self):
-        '''
         Get the prefabs in the scene under test
         '''
         prefabs = set()
         asset_prefab_guids = {}
         for meta_file in self.get_asset_prefabs():
-            file_name, guid = self.get_file_guid(meta_file)
+            guid = self.get_file_guid(meta_file)
             # Record the file_name with the guid as key
-            asset_prefab_guids[guid] = file_name
+            asset_prefab_guids[guid] = meta_file
         # Get the prefab instances within the scene under test
         scene_prefab_instances = self.scene_doc.filter(
             class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
@@ -153,11 +138,15 @@ class InteractionGraph:
             guid = instance.m_SourcePrefab.get("guid")
             if guid in asset_prefab_guids:
                 # Use the recorded file_name
-                prefab_name = Path(asset_prefab_guids[guid]).stem
+                prefab_name = asset_prefab_guids[guid].stem.replace(
+                    ".prefab", "")
+                prefab_path = asset_prefab_guids[guid].parent / \
+                    asset_prefab_guids[guid].stem
                 interaction_layer = self.get_interaction_layer(
-                    instance, asset_prefab_guids[guid])
+                    instance, prefab_path)
                 prefab = Prefab(name=prefab_name,
                                 guid=guid,
+                                file=prefab_path,
                                 type=Type.SCENE,
                                 interaction_layer=interaction_layer)
                 prefabs.add(prefab)
@@ -176,18 +165,6 @@ class InteractionGraph:
         # check the prefab source
         # Assume the default interaction layer is -1
         return -1
-
-    @cache_result
-    def get_scene_prefabs(self):
-        '''
-        Get all the prefab instances in the scene under test
-        '''
-        prefab_guids = []
-        prefab_instances = self.scene_doc.filter(
-            class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
-        for instance in prefab_instances:
-            prefab_guids.append(instance.m_SourcePrefab.get("guid"))
-        return prefab_guids
 
     @cache_result
     def is_custom_xr_interaction(self, cs_file_path):
@@ -267,7 +244,7 @@ class InteractionGraph:
                     return True
         return False
 
-    def _process_prefab_interactions(self, prefab_doc, prefab_name):
+    def _process_prefab_interactions(self, prefab_name, prefab_doc):
         '''
         Helper method to process scripts in a prefab and categorize them
         Returns: Dictionary with sets of interactables and interactors
@@ -279,8 +256,8 @@ class InteractionGraph:
             if data["guid"] not in script_guids:
                 continue
             if "Interactor" in script_name:
-                interactor = Interactor(
-                    prefab_name, data["file"], data["type"], data["interaction_layer"])
+                # interactor = Interactor(
+                #     prefab_name, data["file"], data["type"], data["interaction_layer"])
                 results["interactors"].add(prefab_name)
             elif "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
                 interaction_type = data["type"]
@@ -316,8 +293,8 @@ class InteractionGraph:
             results = {'interactables': set(), 'interactors': set()}
             prefab_doc = UnityDocument.load_yaml(prefab_path)
             # Process current prefab's scripts
-            current_results = self._process_prefab_scripts(
-                prefab_doc, prefab_path.stem)
+            current_results = self._process_prefab_interactions(
+                prefab_path.stem, prefab_doc)
             results["interactables"].update(
                 current_results["interactables"])
             results["interactors"].update(current_results["interactors"])
@@ -333,9 +310,9 @@ class InteractionGraph:
         final_results = {'interactables': set(), 'interactors': set()}
         processed_prefabs = set()
         # Process all prefabs from the scene
-        for _, prefab_path in self.get_prefabs_source_from_scene().items():
+        for prefab in self.get_prefabs_source_from_scene():
             results = find_interactives_in_prefab(
-                prefab_path, processed_prefabs)
+                prefab.file, processed_prefabs)
             final_results["interactables"].update(results["interactables"])
             final_results["interactors"].update(results["interactors"])
         return final_results
@@ -353,7 +330,6 @@ class InteractionGraph:
     def _get_script_mappings(self):
         '''Helper to map script GUIDs to their types'''
         mappings = {'type_map': {}, 'interaction_types': {}}
-
         for script_name, data in self.get_interaction_scripts().items():
             guid = data["guid"]
             if "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
@@ -437,9 +413,9 @@ class InteractionGraph:
         # prefab ui objects
         prefab_uis = set()
         processed_prefabs = set()
-        for name, path in self.get_prefabs_source_from_scene().items():
-            if has_delegates_in_prefab(path, processed_prefabs):
-                prefab_uis.add((name, default_ui_interaction_type))
+        for prefab in self.get_prefabs_source_from_scene():
+            if has_delegates_in_prefab(prefab.file, processed_prefabs):
+                prefab_uis.add((prefab.name, default_ui_interaction_type))
         return scene_uis.union(prefab_uis)
 
     @log_execution_time
@@ -503,13 +479,13 @@ class InteractionGraph:
         plt.show()
 
     def test(self):
-        # interactive_prefabs = self.get_interactive_prefabs()
-        # print(interactive_prefabs['interactables'],
-        #       len(interactive_prefabs['interactables']))
-        # print(interactive_prefabs['interactors'],
-        #       len(interactive_prefabs['interactors']))
+        interactive_prefabs = self.get_interactive_prefabs()
+        print(interactive_prefabs['interactables'],
+              len(interactive_prefabs['interactables']))
+        print(interactive_prefabs['interactors'],
+              len(interactive_prefabs['interactors']))
         # self.get_interactors_interactables()
-        self.build_graph()
+        # self.build_graph()
 
 
 if __name__ == '__main__':
@@ -520,7 +496,7 @@ if __name__ == '__main__':
     sut = root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    # graph.test()
+    graph.test()
     # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
-    for prefab in graph.get_prefabs():
-        print(prefab)
+    # for prefab in graph.get_prefabs_source_from_scene():
+    #     print(prefab)

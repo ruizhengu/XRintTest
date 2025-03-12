@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Type(Enum):
+class PrefabType(Enum):
     ORIGINAL = 1
     SCENE = 2
 

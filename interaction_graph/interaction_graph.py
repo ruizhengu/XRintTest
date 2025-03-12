@@ -8,7 +8,8 @@ import functools
 import itertools as it
 from interactable import Interactable
 from interactor import Interactor
-from prefab import Prefab, Type
+from prefab import Prefab, PrefabType
+from interaction import Interaction, InteractionType
 
 
 def log_execution_time(func):
@@ -147,7 +148,7 @@ class InteractionGraph:
                 prefab = Prefab(name=prefab_name,
                                 guid=guid,
                                 file=prefab_path,
-                                type=Type.SCENE,
+                                type=PrefabType.SCENE,
                                 interaction_layer=interaction_layer)
                 prefabs.add(prefab)
         return prefabs
@@ -193,7 +194,7 @@ class InteractionGraph:
         return False
 
     @cache_result
-    def get_interaction_scripts(self):
+    def get_interaction_types(self):
         '''
         Get the scripts that have "Interactable" or "Interactor" in the name
         Based on .meta files and record the guid of the script
@@ -202,7 +203,7 @@ class InteractionGraph:
             - file: path to cs file
             - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
         '''
-        scripts = {}
+        scripts = set()
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
             cs_file = asset.parent / asset.stem
@@ -211,27 +212,30 @@ class InteractionGraph:
                 continue
             if "Interactable" in file_name or "Interactor" in file_name:
                 if guid := self.get_file_guid(asset):
-                    script_data = {
-                        "guid": guid,
-                        "file": cs_file
-                    }
-                    # Determine interaction type
                     if "XRBaseInteractable" in file_name:
-                        script_data["type"] = "activate"
+                        # interaction_type = InteractionType.ACTIVATE
+                        interaction_type = "activate"
                     elif "XRGrabInteractable" in file_name:
-                        script_data["type"] = "select"
+                        # interaction_type = InteractionType.SELECT
+                        interaction_type = "select"
                     else:
                         # TODO: check if it is custom interaction
-                        script_data["type"] = "CUSTOM-TODO"
-                    scripts[file_name] = script_data
+                        # interaction_type = InteractionType.CUSTOM
+                        interaction_type = "CUSTOM-TODO"
+                    interaction = Interaction(name=file_name,
+                                              file=cs_file,
+                                              guid=guid,
+                                              type=interaction_type)
+                    scripts.add(interaction)
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 if guid := self.get_file_guid(asset):
-                    scripts[file_name] = {
-                        "guid": guid,
-                        "file": cs_file,
-                        "type": "activate*" if "XRBaseInteractable" in custom_type else "select*"
-                    }
+                    interaction_type = "activate*" if "XRBaseInteractable" in custom_type else "select*"
+                    interaction = Interaction(name=file_name,
+                                              file=cs_file,
+                                              guid=guid,
+                                              type=interaction_type)
+                    scripts.add(interaction)
         return scripts
 
     def _has_precondition(self, prefab_doc):
@@ -252,15 +256,15 @@ class InteractionGraph:
         results = {'interactables': set(), 'interactors': set()}
         script_guids = {script.m_Script.get("guid") for script in
                         prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
-        for script_name, data in self.get_interaction_scripts().items():
-            if data["guid"] not in script_guids:
+        for interaction in self.get_interaction_types():
+            if interaction.guid not in script_guids:
                 continue
-            if "Interactor" in script_name:
+            if "Interactor" in interaction.name:
                 # interactor = Interactor(
                 #     prefab_name, data["file"], data["type"], data["interaction_layer"])
                 results["interactors"].add(prefab_name)
-            elif "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
-                interaction_type = data["type"]
+            elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
+                interaction_type = interaction.type
                 if self._has_precondition(prefab_doc):
                     interaction_type += "+activate"
                 results["interactables"].add((prefab_name, interaction_type))
@@ -330,12 +334,12 @@ class InteractionGraph:
     def _get_script_mappings(self):
         '''Helper to map script GUIDs to their types'''
         mappings = {'type_map': {}, 'interaction_types': {}}
-        for script_name, data in self.get_interaction_scripts().items():
-            guid = data["guid"]
-            if "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
+        for interaction in self.get_interaction_types():
+            guid = interaction.guid
+            if "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
                 mappings['type_map'][guid] = "interactables"
-                mappings['interaction_types'][guid] = data["type"]
-            elif "Interactor" in script_name:
+                mappings['interaction_types'][guid] = interaction.type
+            elif "Interactor" in interaction.name:
                 mappings['type_map'][guid] = "interactors"
         return mappings
 

@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import time
 import functools
 import itertools as it
+from interactable import Interactable
+from interactor import Interactor
+from prefab import Prefab, Type
+
 
 def log_execution_time(func):
     '''
@@ -65,11 +69,18 @@ class InteractionGraph:
         '''
         Get all assets based on the asset paths, default to .meta files
         '''
-        assets = []
+        assets = set()
         for path in self.asset_path:
             for asset in path.rglob(suffix):
-                assets.append(asset)
+                assets.add(asset)
         return assets
+
+    @cache_result
+    def get_asset_prefabs(self):
+        '''
+        Get all the prefabs in the asset path
+        '''
+        return self.get_assets("*.prefab.meta")
 
     def get_asset_name_by_guid(self, guid):
         '''
@@ -81,6 +92,7 @@ class InteractionGraph:
                 return asset.stem  # Get the file name without the suffix
         return None
 
+    @cache_result
     def get_file_guid(self, file_name):
         '''
         Get the guid of the file
@@ -90,7 +102,7 @@ class InteractionGraph:
             guid_match = re.search(r'guid: (\w+)', content)
             if guid_match:
                 found_guid = guid_match.group(1)
-                return found_guid
+                return file_name, found_guid
         return None
 
     def get_entry_by_anchor(self, anchor):
@@ -123,6 +135,43 @@ class InteractionGraph:
                 prefab_files[prefab_name.replace(".prefab", "")] = meta_file.parent / \
                     prefab_name
         return prefab_files
+
+    def get_prefabs(self):
+        '''
+        Get the prefabs in the scene under test
+        '''
+        prefabs = set()
+        asset_prefab_guids = {}
+        for meta_file in self.get_asset_prefabs():
+            file_name, guid = self.get_file_guid(meta_file)
+            # Record the file_name with the guid as key
+            asset_prefab_guids[guid] = file_name
+        # Get the prefab instances within the scene under test
+        scene_prefab_instances = self.scene_doc.filter(
+            class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
+        for instance in scene_prefab_instances:
+            guid = instance.m_SourcePrefab.get("guid")
+            if guid in asset_prefab_guids:
+                # Use the recorded file_name
+                prefab_name = Path(asset_prefab_guids[guid]).stem
+                interaction_layer = self.get_interaction_layer(instance)
+                prefab = Prefab(name=prefab_name,
+                                guid=guid,
+                                type=Type.SCENE,
+                                interaction_layer=interaction_layer)
+                prefabs.add(prefab)
+        return prefabs
+
+    def get_interaction_layer(self, instance):
+        '''
+        Get the interaction layer of the prefab instance
+        '''
+        # If there are modifications related to the interaction layer
+        # **is done within the scene**
+        for mod in instance.m_Modification["m_Modifications"]:
+            if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
+                return mod.get("value")
+        return None
 
     @cache_result
     def get_scene_prefabs(self):
@@ -214,7 +263,7 @@ class InteractionGraph:
                     return True
         return False
 
-    def _process_prefab_scripts(self, prefab_doc, prefab_name):
+    def _process_prefab_interactions(self, prefab_doc, prefab_name):
         '''
         Helper method to process scripts in a prefab and categorize them
         Returns: Dictionary with sets of interactables and interactors
@@ -226,6 +275,8 @@ class InteractionGraph:
             if data["guid"] not in script_guids:
                 continue
             if "Interactor" in script_name:
+                interactor = Interactor(
+                    prefab_name, data["file"], data["type"], data["interaction_layer"])
                 results["interactors"].add(prefab_name)
             elif "Interactable" in script_name or self.is_custom_xr_interaction(data["file"]):
                 interaction_type = data["type"]
@@ -412,15 +463,16 @@ class InteractionGraph:
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]
         colors = {
-            'select': 'red', 
+            'select': 'red',
             'activate': 'blue',
-            'select*': 'darkred', 
+            'select*': 'darkred',
             'activate*': 'darkblue',
             'CUSTOM-TODO': 'purple'
         }
         # Add nodes and edges
         interactives = self.get_interactors_interactables()
-        interactor = next(iter(interactives['interactors']))  # Get first interactor
+        # Get first interactor
+        interactor = next(iter(interactives['interactors']))
         G.add_node(interactor)
 
         edges_by_type = {}
@@ -428,7 +480,8 @@ class InteractionGraph:
             G.add_node(interactable)
             for type in interaction_type.split("+"):
                 G.add_edge(interactor, interactable, key=type)
-                edges_by_type.setdefault(type, []).append((interactor, interactable))
+                edges_by_type.setdefault(type, []).append(
+                    (interactor, interactable))
         # Draw graph
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos)
@@ -441,7 +494,7 @@ class InteractionGraph:
                 edge_color=colors.get(edge_type, 'gray'),
                 connectionstyle=connectionstyles[i % len(connectionstyles)]
             )
-            edge_labels = {(u,v): edge_type for u,v in edges}
+            edge_labels = {(u, v): edge_type for u, v in edges}
             nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
         plt.show()
 
@@ -463,6 +516,7 @@ if __name__ == '__main__':
     sut = root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(root, sut)
-    graph.test()
+    # graph.test()
     # print(graph.get_asset_name_by_guid("3549fdaf258e11846b85a316c16c699c"))
-    # print(graph.get_interaction_scripts())
+    for prefab in graph.get_prefabs():
+        print(prefab)

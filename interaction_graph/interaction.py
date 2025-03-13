@@ -8,11 +8,11 @@ class InteractionType(Enum):
 
 
 class Interaction:
-    def __init__(self, name, file, guid, type="select"):
+    def __init__(self, name, file, guid, interaction_type="select"):
         self.name = name
         self.file = file
         self.guid = guid
-        self.type = type
+        self.interaction_type = interaction_type
 
     def __str__(self):
-        return f"{self.name} ({self.type})"
+        return f"{self.name} ({self.interaction_type})"

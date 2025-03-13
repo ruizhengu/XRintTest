@@ -6,4 +6,4 @@ class Interactor:
         self.interaction_layer = interaction_layer
 
     def __str__(self):
-        return f"{self.name} ({self.interaction_type})"
+        return f"{self.name}"

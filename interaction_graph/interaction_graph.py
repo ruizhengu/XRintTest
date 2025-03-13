@@ -267,8 +267,6 @@ class InteractionGraph:
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 if guid := self.get_file_guid(asset):
                     type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
-                    # interaction_type.add(
-                    #     "activate*" if "XRBaseInteractable" in custom_type else "select*")
                     interaction_type.add(type_tentative)
                     interaction = Interaction(name=file_name,
                                               file=cs_file,
@@ -306,12 +304,12 @@ class InteractionGraph:
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
             elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
-                # TODO check the incorrect handling of precondition
-                # if self._has_precondition(prefab_doc):
-                #     interaction.interaction_type.add(InteractionType.ACTIVATE)
+                interaction_type = interaction.interaction_type
+                if self._has_precondition(prefab_doc):
+                    interaction_type = interaction_type.union({InteractionType.ACTIVATE})
                 interactable = Interactable(name=prefab.name,
                                             script=interaction.file,
-                                            interaction_type=interaction.interaction_type,
+                                            interaction_type=interaction_type,
                                             interaction_layer=prefab.interaction_layer)
                 results["interactables"].add(interactable)
             break

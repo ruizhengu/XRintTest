@@ -245,20 +245,19 @@ class InteractionGraph:
             cs_file = asset.parent / asset.stem
             interaction_type = set()
             # Skip deprecated and affordance files
-            # TODO: check incorrect assignment of interaction type
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
             if "Interactable" in file_name or "Interactor" in file_name:
                 if guid := self.get_file_guid(asset):
                     if "XRBaseInteractable" in file_name:
-                        interaction_type.add("activate")
+                        interaction_type.add(InteractionType.ACTIVATE)
                     elif "XRGrabInteractable" in file_name:
-                        interaction_type.add("select")
+                        interaction_type.add(InteractionType.SELECT)
                     elif "XRSocketInteractor" in file_name:
-                        interaction_type.add("socket")
+                        interaction_type.add(InteractionType.SOCKET)
                     else:
                         # TODO: check if it is custom interaction
-                        interaction_type.add("CUSTOM")
+                        interaction_type.add(InteractionType.CUSTOM)
                     interaction = Interaction(name=file_name,
                                               file=cs_file,
                                               guid=guid,
@@ -267,8 +266,10 @@ class InteractionGraph:
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 if guid := self.get_file_guid(asset):
-                    interaction_type.add(
-                        "activate*" if "XRBaseInteractable" in custom_type else "select*")
+                    type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
+                    # interaction_type.add(
+                    #     "activate*" if "XRBaseInteractable" in custom_type else "select*")
+                    interaction_type.add(type_tentative)
                     interaction = Interaction(name=file_name,
                                               file=cs_file,
                                               guid=guid,
@@ -305,8 +306,9 @@ class InteractionGraph:
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
             elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
-                if self._has_precondition(prefab_doc):
-                    interaction.interaction_type.add("activate")
+                # TODO check the incorrect handling of precondition
+                # if self._has_precondition(prefab_doc):
+                #     interaction.interaction_type.add(InteractionType.ACTIVATE)
                 interactable = Interactable(name=prefab.name,
                                             script=interaction.file,
                                             interaction_type=interaction.interaction_type,
@@ -392,9 +394,10 @@ class InteractionGraph:
         """
         Get all ui objects from the scene and prefabs
         """
-        default_ui_interaction_type = "activate"  # set the default interaction types for all uis to "activate"
+        default_ui_interaction_type = set()  # set the default interaction types for all uis to "activate"
+        default_ui_interaction_type.add(InteractionType.ACTIVATE)
         default_ui_interaction_script = None
-        default_ui_interaction_layer = -2 # UI objects do not have interaction layers, set value to -2
+        default_ui_interaction_layer = -2  # UI objects do not have interaction layers, set value to -2
         # scene ui objects
         scene_uis = set()
         delegates = self.scene_doc.filter(
@@ -409,6 +412,7 @@ class InteractionGraph:
                                   interaction_layer=default_ui_interaction_layer
                                   )
                 scene_uis.add(ui)
+
         def has_delegates_in_prefab(prefab, processed):
             """
             Recursive search method to get nested prefab ui objects
@@ -463,6 +467,7 @@ class InteractionGraph:
     def build_graph(self):
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]
+        plt.figure(figsize=(12, 10))
         # colors = {
         #     'select': 'red',
         #     'activate': 'blue',
@@ -472,7 +477,7 @@ class InteractionGraph:
         # }
         # Add nodes and edges
         interactors, interactables = self.get_interactors_interactables()
-        interactor = next(iter(interactors)) # Get first interactor
+        interactor = next(iter(interactors))  # Get first interactor
         G.add_node(interactor.name)
 
         edges_by_type = {}
@@ -483,8 +488,8 @@ class InteractionGraph:
                 G.add_edge(interactor.name, interactable.name, key=interaction)
                 edges_by_type.setdefault(interaction, []).append((interactor.name, interactable.name))
         pos = nx.spring_layout(G)
-        nx.draw_networkx_nodes(G, pos)
-        nx.draw_networkx_labels(G, pos)
+        nx.draw_networkx_nodes(G, pos, node_size=60)
+        nx.draw_networkx_labels(G, pos, font_size=10)
         # Draw edges for each interaction type
         for i, (edge_type, edges) in enumerate(edges_by_type.items()):
             nx.draw_networkx_edges(
@@ -494,8 +499,8 @@ class InteractionGraph:
                 edge_cmap=mpl.colormaps["Blues"],
                 connectionstyle=connectionstyles[i % len(connectionstyles)]
             )
-            edge_labels = {(u, v): edge_type for u, v in edges}
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+            # edge_labels = {(u, v): edge_type for u, v in edges}
+            # nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10)
         plt.show()
 
     def test(self):

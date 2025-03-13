@@ -4,11 +4,14 @@ from enum import Enum
 class InteractionType(Enum):
     SELECT = 1
     ACTIVATE = 2
-    CUSTOM = 3
+    SOCKET = 3
+    CUSTOM = 4
+    SELECT_TENTATIVE = 5
+    ACTIVATE_TENTATIVE = 6
 
 
 class Interaction:
-    def __init__(self, name, file, guid, interaction_type="select"):
+    def __init__(self, name, file, guid, interaction_type):
         self.name = name
         self.file = file
         self.guid = guid

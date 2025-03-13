@@ -10,6 +10,7 @@ from interactable import Interactable
 from interactor import Interactor
 from prefab import Prefab, PrefabType
 from interaction import Interaction, InteractionType
+import matplotlib as mpl
 
 
 def log_execution_time(func):
@@ -129,7 +130,8 @@ class InteractionGraph:
     @cache_result
     def _get_asset_prefab_guids(self):
         """
-        Get the guids of all prefabs in the asset path
+        Get the guids of all prefabs in the asset path by
+        recording the prefab file names with the guids as keys
         """
         asset_prefab_guids = {}
         for meta_file in self.get_asset_prefabs():
@@ -142,12 +144,8 @@ class InteractionGraph:
         """
         Get all prefabs within a Unity doc file
         """
-        # Record the prefab file names with the guids as keys
-        asset_prefab_guids = self._get_asset_prefab_guids()
-        # for meta_file in self.get_asset_prefabs():
-        #     guid = self.get_file_guid(meta_file)
-        #     asset_prefab_guids[guid] = meta_file
         prefabs = set()
+        asset_prefab_guids = self._get_asset_prefab_guids()
         scene_prefab_instances = doc.filter(
             class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
         for instance in scene_prefab_instances:
@@ -247,6 +245,7 @@ class InteractionGraph:
             cs_file = asset.parent / asset.stem
             interaction_type = set()
             # Skip deprecated and affordance files
+            # TODO: check incorrect assignment of interaction type
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
             if "Interactable" in file_name or "Interactor" in file_name:
@@ -255,6 +254,8 @@ class InteractionGraph:
                         interaction_type.add("activate")
                     elif "XRGrabInteractable" in file_name:
                         interaction_type.add("select")
+                    elif "XRSocketInteractor" in file_name:
+                        interaction_type.add("socket")
                     else:
                         # TODO: check if it is custom interaction
                         interaction_type.add("CUSTOM")
@@ -400,13 +401,14 @@ class InteractionGraph:
             class_names=("MonoBehaviour",), attributes=("m_Delegates",))
         for delegate in delegates:
             obj_id = delegate.m_GameObject.get("fileID")
-            ui = Interactable(name=self._get_prefab_name(obj_id),
-                              script=default_ui_interaction_script,
-                              interaction_type=default_ui_interaction_type,
-                              interaction_layer=default_ui_interaction_layer
-                              )
-            scene_uis.add(ui)
-
+            # TODO: check why the name could be None
+            if self._get_prefab_name(obj_id):
+                ui = Interactable(name=self._get_prefab_name(obj_id),
+                                  script=default_ui_interaction_script,
+                                  interaction_type=default_ui_interaction_type,
+                                  interaction_layer=default_ui_interaction_layer
+                                  )
+                scene_uis.add(ui)
         def has_delegates_in_prefab(prefab, processed):
             """
             Recursive search method to get nested prefab ui objects
@@ -427,10 +429,10 @@ class InteractionGraph:
         # prefab ui objects
         prefab_uis = set()
         processed_prefabs = set()
-        for prefab in self.get_prefabs_source_from_scene():
-            if has_delegates_in_prefab(prefab, processed_prefabs):
+        for prefab_source in self.get_prefabs_source_from_scene():
+            if has_delegates_in_prefab(prefab_source, processed_prefabs):
                 ui = Interactable(
-                    name=prefab.name,
+                    name=prefab_source.name,
                     script=default_ui_interaction_script,
                     interaction_type=default_ui_interaction_type,
                     interaction_layer=default_ui_interaction_layer
@@ -447,42 +449,39 @@ class InteractionGraph:
         prefab_results = self.get_interactive_prefabs()
         scene_results = self.get_scene_interactives()
         uis = self.get_ui_objects()
-        merged_results = {
-            'interactors': prefab_results['interactors'].union(scene_results['interactors']),
-            'interactables': prefab_results['interactables'].union(scene_results['interactables']).union(uis)
-        }
+        interactors = prefab_results['interactors'].union(scene_results['interactors'])
+        interactables = prefab_results['interactables'].union(scene_results['interactables']).union(uis)
+        interactables_3d = prefab_results['interactables'].union(scene_results['interactables'])
         print(
-            f"Interactors: {merged_results['interactors']}, length: {len(merged_results['interactors'])}")
+            f"Interactors: {[_.name for _ in interactors]}, length: {len(interactors)}")
         print(
-            f"Interactables: {merged_results['interactables'].difference(uis)}, length: {len(merged_results['interactables'].difference(uis))}")
-        print(f"UIs: {uis}, length: {len(uis)}")
-        return merged_results
+            f"Interactables: {[' '.join((_.name, str(_.interaction_type))) for _ in interactables_3d]}, length: {len(interactables_3d)}")
+        print(f"UIs: {[_.name for _ in uis]}, length: {len(uis)}")
+        return interactors, interactables
 
     @log_execution_time
     def build_graph(self):
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]
-        colors = {
-            'select': 'red',
-            'activate': 'blue',
-            'select*': 'darkred',
-            'activate*': 'darkblue',
-            'CUSTOM-TODO': 'purple'
-        }
+        # colors = {
+        #     'select': 'red',
+        #     'activate': 'blue',
+        #     'select*': 'darkred',
+        #     'activate*': 'darkblue',
+        #     'CUSTOM-TODO': 'purple'
+        # }
         # Add nodes and edges
-        interactives = self.get_interactors_interactables()
-        # Get first interactor
-        interactor = next(iter(interactives['interactors']))
-        G.add_node(interactor)
+        interactors, interactables = self.get_interactors_interactables()
+        interactor = next(iter(interactors)) # Get first interactor
+        G.add_node(interactor.name)
 
         edges_by_type = {}
-        for interactable, interaction_type in interactives['interactables']:
-            G.add_node(interactable)
-            for type in interaction_type.split("+"):
-                G.add_edge(interactor, interactable, key=type)
-                edges_by_type.setdefault(type, []).append(
-                    (interactor, interactable))
-        # Draw graph
+        for interactable in interactables:
+            # print(interactable.name)
+            G.add_node(interactable.name)
+            for interaction in interactable.interaction_type:
+                G.add_edge(interactor.name, interactable.name, key=interaction)
+                edges_by_type.setdefault(interaction, []).append((interactor.name, interactable.name))
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos)
         nx.draw_networkx_labels(G, pos)
@@ -491,7 +490,8 @@ class InteractionGraph:
             nx.draw_networkx_edges(
                 G, pos,
                 edgelist=edges,
-                edge_color=colors.get(edge_type, 'gray'),
+                # edge_color=colors.get(edge_type, 'gray'),
+                edge_cmap=mpl.colormaps["Blues"],
                 connectionstyle=connectionstyles[i % len(connectionstyles)]
             )
             edge_labels = {(u, v): edge_type for u, v in edges}
@@ -499,23 +499,8 @@ class InteractionGraph:
         plt.show()
 
     def test(self):
-        # interactive_prefabs = self.get_interactive_prefabs()
-        # print([_.name + str(_.interaction_type) for _ in interactive_prefabs['interactables']],
-        #       len(interactive_prefabs['interactables']))
-        # print([_.name for _ in interactive_prefabs['interactors']],
-        #       len(interactive_prefabs['interactors']))
-
-        # scene_interactives = self.get_scene_interactives()
-        # print([_.name + str(_.interaction_type) for _ in scene_interactives['interactables']],
-        #       len(scene_interactives['interactables']))
-        # print([_.name for _ in scene_interactives['interactors']],
-        #       len(scene_interactives['interactors']))
-
-        uis = self.get_ui_objects()
-        print([_.name for _ in uis], len(uis))
-
         # self.get_interactors_interactables()
-        # self.build_graph()
+        self.build_graph()
 
 
 if __name__ == '__main__':

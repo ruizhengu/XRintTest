@@ -240,6 +240,7 @@ class InteractionGraph:
             - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
         """
         scripts = set()
+        processed_guids = set()  # record processed guids to avoid duplicated interactions
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
             cs_file = asset.parent / asset.stem
@@ -247,32 +248,35 @@ class InteractionGraph:
             # Skip deprecated and affordance files
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
+            guid = self.get_file_guid(asset)
+            if guid in processed_guids:
+                continue
             if "Interactable" in file_name or "Interactor" in file_name:
-                if guid := self.get_file_guid(asset):
-                    if "XRBaseInteractable" in file_name:
-                        interaction_type.add(InteractionType.ACTIVATE)
-                    elif "XRGrabInteractable" in file_name:
-                        interaction_type.add(InteractionType.SELECT)
-                    elif "XRSocketInteractor" in file_name:
-                        interaction_type.add(InteractionType.SOCKET)
-                    else:
-                        # TODO: check if it is custom interaction
-                        interaction_type.add(InteractionType.CUSTOM)
-                    interaction = Interaction(name=file_name,
-                                              file=cs_file,
-                                              guid=guid,
-                                              interaction_type=interaction_type)
-                    scripts.add(interaction)
+                if "XRBaseInteractable" in file_name:
+                    interaction_type.add(InteractionType.ACTIVATE)
+                elif "XRGrabInteractable" in file_name:
+                    interaction_type.add(InteractionType.SELECT)
+                elif "XRSocketInteractor" in file_name:
+                    interaction_type.add(InteractionType.SOCKET)
+                else:
+                    # TODO: check if it is custom interaction
+                    interaction_type.add(InteractionType.CUSTOM)
+                interaction = Interaction(name=file_name,
+                                          file=cs_file,
+                                          guid=guid,
+                                          interaction_type=interaction_type)
+                processed_guids.add(guid)
+                scripts.add(interaction)
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
-                if guid := self.get_file_guid(asset):
-                    type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
-                    interaction_type.add(type_tentative)
-                    interaction = Interaction(name=file_name,
-                                              file=cs_file,
-                                              guid=guid,
-                                              interaction_type=interaction_type)
-                    scripts.add(interaction)
+                type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
+                interaction_type.add(type_tentative)
+                interaction = Interaction(name=file_name,
+                                          file=cs_file,
+                                          guid=guid,
+                                          interaction_type=interaction_type)
+                processed_guids.add(guid)
+                scripts.add(interaction)
         return scripts
 
     @staticmethod

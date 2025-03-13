@@ -127,15 +127,26 @@ class InteractionGraph:
         return None
 
     @cache_result
+    def _get_asset_prefab_guids(self):
+        """
+        Get the guids of all prefabs in the asset path
+        """
+        asset_prefab_guids = {}
+        for meta_file in self.get_asset_prefabs():
+            guid = self.get_file_guid(meta_file)
+            asset_prefab_guids[guid] = meta_file
+        return asset_prefab_guids
+
+    @cache_result
     def _get_prefab_objects(self, doc):
         """
         Get all prefabs within a Unity doc file
         """
         # Record the prefab file names with the guids as keys
-        asset_prefab_guids = {}
-        for meta_file in self.get_asset_prefabs():
-            guid = self.get_file_guid(meta_file)
-            asset_prefab_guids[guid] = meta_file
+        asset_prefab_guids = self._get_asset_prefab_guids()
+        # for meta_file in self.get_asset_prefabs():
+        #     guid = self.get_file_guid(meta_file)
+        #     asset_prefab_guids[guid] = meta_file
         prefabs = set()
         scene_prefab_instances = doc.filter(
             class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
@@ -146,7 +157,7 @@ class InteractionGraph:
                     ".prefab", "")
                 prefab_path = asset_prefab_guids[prefab_guid].parent / \
                               asset_prefab_guids[prefab_guid].stem
-                interaction_layer = self.get_interaction_layer(
+                interaction_layer = self._get_interaction_layer(
                     instance=instance, )
                 # TODO: could set the prefab type according to the input doc path
                 prefab = Prefab(name=prefab_name,
@@ -157,26 +168,33 @@ class InteractionGraph:
                 prefabs.add(prefab)
         return prefabs
 
+    def _get_prefab_name(self, obj_id):
+        """Helper to get prefab name from object ID"""
+        if entry := self.get_entry_by_anchor(obj_id):
+            if prefab_id := entry.m_PrefabInstance.get("fileID"):
+                if prefab_entry := self.get_entry_by_anchor(prefab_id):
+                    for mod in prefab_entry.m_Modification["m_Modifications"]:
+                        if mod.get("propertyPath") == "m_Name":
+                            return mod.get("value")
+        return None
+
     def get_prefabs_source_from_scene(self):
         """
         Get the prefabs in the scene under test
         """
         return self._get_prefab_objects(self.scene_doc)
 
-    def get_interaction_layer(self, instance=None, prefab_source=None, obj_id=None):
+    def _get_interaction_layer(self, instance=None, prefab_source=None, obj_id=None):
         """
         Get the interaction layer of the prefab instance
         """
-        # If there are modifications related to the interaction layer
-        # **is done within the scene**
+        # If there are modifications related to the interaction layer is done within the scene
         if instance:
             for mod in instance.m_Modification["m_Modifications"]:
                 if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
                     return mod.get("value")
         elif prefab_source:
-            # TODO: If there are no modifications related to the interaction layer,
-            # check the prefab source
-            # Assume the default interaction layer is -1
+            # TODO: If there are no modifications related to the interaction layer, check the prefab source
             pass
         elif obj_id:
             if entry := self.get_entry_by_anchor(obj_id):
@@ -185,7 +203,7 @@ class InteractionGraph:
                         for mod in prefab_entry.m_Modification["m_Modifications"]:
                             if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
                                 return mod.get("value")
-        return -1
+        return -1  # Assume the default interaction layer is -1
 
     @cache_result
     def is_custom_xr_interaction(self, cs_file_path):
@@ -257,7 +275,8 @@ class InteractionGraph:
                     scripts.add(interaction)
         return scripts
 
-    def _has_precondition(self, prefab_doc):
+    @staticmethod
+    def _has_precondition(prefab_doc):
         """
         Check if select interactions also supported activate interactions (m_Activated in MonoBehaviour)
         """
@@ -333,21 +352,11 @@ class InteractionGraph:
         final_results = {'interactables': set(), 'interactors': set()}
         processed_prefabs = set()
         # Process all prefabs from the scene
-        for prefab in self.get_prefabs_source_from_scene():
-            results_tmp = find_interactives_in_prefab(prefab, processed_prefabs)
+        for prefab_source in self.get_prefabs_source_from_scene():
+            results_tmp = find_interactives_in_prefab(prefab_source, processed_prefabs)
             final_results["interactables"].update(results_tmp["interactables"])
             final_results["interactors"].update(results_tmp["interactors"])
         return final_results
-
-    def _get_prefab_name(self, obj_id):
-        """Helper to get prefab name from object ID"""
-        if entry := self.get_entry_by_anchor(obj_id):
-            if prefab_id := entry.m_PrefabInstance.get("fileID"):
-                if prefab_entry := self.get_entry_by_anchor(prefab_id):
-                    for mod in prefab_entry.m_Modification["m_Modifications"]:
-                        if mod.get("propertyPath") == "m_Name":
-                            return mod.get("value")
-        return None
 
     def get_scene_interactives(self):
         """
@@ -368,13 +377,13 @@ class InteractionGraph:
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
                         interaction_type=interaction.interaction_type,
-                        interaction_layer=self.get_interaction_layer(obj_id=obj_id), )
+                        interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
                     results["interactables"].add(interactable)
                 elif "Interactor" in interaction.name:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_layer=self.get_interaction_layer(obj_id=obj_id), )
+                        interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
                     results["interactors"].add(interactor)
         return results
 
@@ -383,43 +392,50 @@ class InteractionGraph:
         Get all ui objects from the scene and prefabs
         """
         default_ui_interaction_type = "activate"  # set the default interaction types for all uis to "activate"
+        default_ui_interaction_script = None
+        default_ui_interaction_layer = -2 # UI objects do not have interaction layers, set value to -2
         # scene ui objects
         scene_uis = set()
         delegates = self.scene_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Delegates",))
         for delegate in delegates:
-            obj = self.get_entry_by_anchor(
-                delegate.m_GameObject.get("fileID"))
-            scene_uis.add((obj.m_Name, default_ui_interaction_type))
+            obj_id = delegate.m_GameObject.get("fileID")
+            ui = Interactable(name=self._get_prefab_name(obj_id),
+                              script=default_ui_interaction_script,
+                              interaction_type=default_ui_interaction_type,
+                              interaction_layer=default_ui_interaction_layer
+                              )
+            scene_uis.add(ui)
 
-        def has_delegates_in_prefab(prefab_path, processed):
+        def has_delegates_in_prefab(prefab, processed):
             """
             Recursive search method to get nested prefab ui objects
             """
-            if prefab_path in processed:
+            if prefab in processed:
                 return False
-            processed.add(prefab_path)
-            try:
-                prefab_doc = UnityDocument.load_yaml(prefab_path)
-                if prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Delegates",)):
+            processed.add(prefab)
+            # check if the prefab contain event triggers
+            prefab_doc = UnityDocument.load_yaml(prefab.file)
+            if prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Delegates",)):
+                return True
+            # check nested prefabs
+            for nested_prefab in self._get_nested_prefab(prefab):
+                if has_delegates_in_prefab(nested_prefab, processed):
                     return True
-                for instance in prefab_doc.filter(class_names=("PrefabInstance",), attributes=("m_SourcePrefab",)):
-                    if source_guid := instance.m_SourcePrefab.get("guid"):
-                        for meta_file in self.get_assets("*.prefab.meta"):
-                            if self.get_file_guid(meta_file) == source_guid:
-                                nested_path = meta_file.parent / meta_file.stem
-                                if has_delegates_in_prefab(nested_path, processed):
-                                    return True
-            except Exception as e:
-                print(f"Error processing prefab {prefab_path}: {e}")
             return False
 
         # prefab ui objects
         prefab_uis = set()
         processed_prefabs = set()
         for prefab in self.get_prefabs_source_from_scene():
-            if has_delegates_in_prefab(prefab.file, processed_prefabs):
-                prefab_uis.add((prefab.name, default_ui_interaction_type))
+            if has_delegates_in_prefab(prefab, processed_prefabs):
+                ui = Interactable(
+                    name=prefab.name,
+                    script=default_ui_interaction_script,
+                    interaction_type=default_ui_interaction_type,
+                    interaction_layer=default_ui_interaction_layer
+                )
+                prefab_uis.add(ui)
         return scene_uis.union(prefab_uis)
 
     @log_execution_time
@@ -489,22 +505,24 @@ class InteractionGraph:
         # print([_.name for _ in interactive_prefabs['interactors']],
         #       len(interactive_prefabs['interactors']))
 
-        scene_interactives = self.get_scene_interactives()
-        print([_.name + str(_.interaction_type) for _ in scene_interactives['interactables']],
-              len(scene_interactives['interactables']))
-        print([_.name for _ in scene_interactives['interactors']],
-              len(scene_interactives['interactors']))
+        # scene_interactives = self.get_scene_interactives()
+        # print([_.name + str(_.interaction_type) for _ in scene_interactives['interactables']],
+        #       len(scene_interactives['interactables']))
+        # print([_.name for _ in scene_interactives['interactors']],
+        #       len(scene_interactives['interactors']))
+
+        uis = self.get_ui_objects()
+        print([_.name for _ in uis], len(uis))
+
         # self.get_interactors_interactables()
         # self.build_graph()
 
 
 if __name__ == '__main__':
     # need to set the path of the scene, and also the path of where the prefabs are stored
-    root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample")
-    sut = root / "Assets/Scenes/SampleScene.unity"
+    project_root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample")
+    scene_under_test = project_root / "Assets/Scenes/SampleScene.unity"
 
-    graph = InteractionGraph(root, sut)
+    graph = InteractionGraph(project_root, scene_under_test)
     graph.test()
     # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
-    # for prefab in graph.get_prefabs_source_from_scene():
-    #     print(prefab)

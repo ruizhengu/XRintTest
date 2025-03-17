@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
-class InteractionType(Enum):
+class InteractionType(IntEnum):
     SELECT = 1
     ACTIVATE = 2
     SOCKET = 3

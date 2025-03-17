@@ -251,7 +251,7 @@ class InteractionGraph:
             guid = self.get_file_guid(asset)
             if guid in processed_guids:
                 continue
-            if "Interactable" in file_name or "Interactor" in file_name:
+            if "Interactable" in file_name:
                 if "XRBaseInteractable" in file_name:
                     interaction_type.add(InteractionType.ACTIVATE)
                 elif "XRGrabInteractable" in file_name:
@@ -269,7 +269,13 @@ class InteractionGraph:
                 if "XRSocketInteractor" in file_name:
                     interaction_type.add(InteractionType.SOCKET)
                 else:
-                    pass
+                    interaction_type.add(None)
+                interaction = Interaction(name=file_name,
+                                          file=cs_file,
+                                          guid=guid,
+                                          interaction_type=interaction_type)
+                processed_guids.add(guid)
+                scripts.add(interaction)
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
@@ -308,7 +314,7 @@ class InteractionGraph:
             if "Interactor" in interaction.name:
                 interactor = Interactor(name=prefab.name,
                                         script=interaction.file,
-                                        interaction_type=None,
+                                        interaction_type=interaction.interaction_type,
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
             elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
@@ -392,7 +398,7 @@ class InteractionGraph:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_type=None,
+                        interaction_type=interaction.interaction_type,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
                     results["interactors"].add(interactor)
         return results
@@ -483,20 +489,32 @@ class InteractionGraph:
         #     'CUSTOM-TODO': 'purple'
         # }
         # Add nodes and edges
+        # interactor_user = set()
+
         interactors, interactables = self.get_interactors_interactables()
-        interactor = next(iter(interactors))  # Get first interactor
-        G.add_node(interactor.name)
-
-
-
+        interactor_user = None
+        interactor_socket = set()
+        for interactor in interactors:
+            if InteractionType.SOCKET in interactor.interaction_type:
+                G.add_node(interactor.name)
+                interactor_socket.add(interactor)
+        for interactor in interactors:
+            if InteractionType.SOCKET not in interactor.interaction_type:
+                G.add_node(interactor.name)
+                interactor_user = interactor
+                break
         edges_by_type = {}
         for interactable in interactables:
             # print(interactable.name)
             G.add_node(interactable.name)
             for interaction in interactable.interaction_type:
-                if interaction != InteractionType.SOCKET:
-                    G.add_edge(interactor.name, interactable.name, key=interaction)
-                    edges_by_type.setdefault(interaction, []).append((interactor.name, interactable.name))
+                # if interaction != InteractionType.SOCKET:
+                G.add_edge(interactor_user.name, interactable.name, key=interaction)
+                edges_by_type.setdefault(interaction, []).append((interactor_user.name, interactable.name))
+            for socket in interactor_socket:
+                if socket.interaction_layer == interactable.interaction_layer:
+                    G.add_edge(interactor_user.name, interactable.name)
+                    # edges_by_type.setdefault(interaction, []).append((interactor_user.name, interactable.name))
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos, node_size=60)
         nx.draw_networkx_labels(G, pos, font_size=10)

@@ -1,13 +1,13 @@
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 
 
-class InteractionType(IntEnum):
-    SELECT = 1
-    ACTIVATE = 2
-    SOCKET = 3
-    CUSTOM = 4
-    SELECT_TENTATIVE = 5
-    ACTIVATE_TENTATIVE = 6
+class InteractionType(StrEnum):
+    SELECT = "select"
+    ACTIVATE = "activate"
+    SOCKET = "socket"
+    CUSTOM = "custom"
+    SELECT_TENTATIVE = "select_tentative"
+    ACTIVATE_TENTATIVE = "activate_tentative"
 
 
 class Interaction:

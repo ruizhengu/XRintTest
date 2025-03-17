@@ -481,16 +481,17 @@ class InteractionGraph:
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]
         plt.figure(figsize=(12, 10))
-        # colors = {
-        #     'select': 'red',
-        #     'activate': 'blue',
-        #     'select*': 'darkred',
-        #     'activate*': 'darkblue',
-        #     'CUSTOM-TODO': 'purple'
-        # }
+        colors = {
+            InteractionType.SELECT: 'lightcoral',
+            InteractionType.ACTIVATE: 'lightsteelblue',
+            InteractionType.SOCKET: 'khaki',
+            InteractionType.CUSTOM: 'lime',
+            InteractionType.SELECT_TENTATIVE: 'rosybrown',
+            InteractionType.ACTIVATE_TENTATIVE: 'slategrey'
+        }
+
         # Add nodes and edges
         # interactor_user = set()
-
         interactors, interactables = self.get_interactors_interactables()
         interactor_user = None
         interactor_socket = set()
@@ -505,16 +506,14 @@ class InteractionGraph:
                 break
         edges_by_type = {}
         for interactable in interactables:
-            # print(interactable.name)
             G.add_node(interactable.name)
             for interaction in interactable.interaction_type:
-                # if interaction != InteractionType.SOCKET:
                 G.add_edge(interactor_user.name, interactable.name, key=interaction)
                 edges_by_type.setdefault(interaction, []).append((interactor_user.name, interactable.name))
             for socket in interactor_socket:
                 if socket.interaction_layer == interactable.interaction_layer:
                     G.add_edge(interactor_user.name, interactable.name)
-                    # edges_by_type.setdefault(interaction, []).append((interactor_user.name, interactable.name))
+                    edges_by_type.setdefault(InteractionType.SOCKET, []).append((socket.name, interactable.name))
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos, node_size=60)
         nx.draw_networkx_labels(G, pos, font_size=10)
@@ -523,12 +522,11 @@ class InteractionGraph:
             nx.draw_networkx_edges(
                 G, pos,
                 edgelist=edges,
-                # edge_color=colors.get(edge_type, 'gray'),
-                edge_cmap=mpl.colormaps["Blues"],
+                edge_color=colors.get(edge_type, 'black'),
                 connectionstyle=connectionstyles[i % len(connectionstyles)]
             )
-            # edge_labels = {(u, v): edge_type for u, v in edges}
-            # nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10)
+            edge_labels = {(u, v): edge_type for u, v in edges}
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10)
         plt.show()
 
     def test(self):

@@ -256,8 +256,6 @@ class InteractionGraph:
                     interaction_type.add(InteractionType.ACTIVATE)
                 elif "XRGrabInteractable" in file_name:
                     interaction_type.add(InteractionType.SELECT)
-                elif "XRSocketInteractor" in file_name:
-                    interaction_type.add(InteractionType.SOCKET)
                 else:
                     # TODO: check if it is custom interaction
                     interaction_type.add(InteractionType.CUSTOM)
@@ -267,6 +265,11 @@ class InteractionGraph:
                                           interaction_type=interaction_type)
                 processed_guids.add(guid)
                 scripts.add(interaction)
+            elif "Interactor" in file_name:
+                if "XRSocketInteractor" in file_name:
+                    interaction_type.add(InteractionType.SOCKET)
+                else:
+                    pass
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
@@ -305,6 +308,7 @@ class InteractionGraph:
             if "Interactor" in interaction.name:
                 interactor = Interactor(name=prefab.name,
                                         script=interaction.file,
+                                        interaction_type=None,
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
             elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
@@ -388,6 +392,7 @@ class InteractionGraph:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
+                        interaction_type=None,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
                     results["interactors"].add(interactor)
         return results
@@ -482,13 +487,16 @@ class InteractionGraph:
         interactor = next(iter(interactors))  # Get first interactor
         G.add_node(interactor.name)
 
+
+
         edges_by_type = {}
         for interactable in interactables:
             # print(interactable.name)
             G.add_node(interactable.name)
             for interaction in interactable.interaction_type:
-                G.add_edge(interactor.name, interactable.name, key=interaction)
-                edges_by_type.setdefault(interaction, []).append((interactor.name, interactable.name))
+                if interaction != InteractionType.SOCKET:
+                    G.add_edge(interactor.name, interactable.name, key=interaction)
+                    edges_by_type.setdefault(interaction, []).append((interactor.name, interactable.name))
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos, node_size=60)
         nx.draw_networkx_labels(G, pos, font_size=10)

@@ -212,7 +212,8 @@ class InteractionGraph:
         # First check if file is in custom script path
         if not str(cs_file_path).startswith(str(self.custom_script_path)):
             return False
-        target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
+        # target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
+        target_class_keyword = "Interactable"
         try:
             with open(cs_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -223,8 +224,11 @@ class InteractionGraph:
                     inherited_classes = {cls.strip()
                                          for cls in inheritance.split(',')}
                     # Return the matching classes if any exist
-                    matching_classes = inherited_classes & target_classes
-                    return matching_classes if matching_classes else False
+                    # matching_classes = inherited_classes & target_classes
+                    for cls in inherited_classes:
+                        if target_class_keyword in cls:
+                            return True
+                    # return matching_classes if matching_classes else False
         except Exception as e:
             print(f"Error reading file {cs_file_path}: {e}")
         return False
@@ -258,18 +262,19 @@ class InteractionGraph:
                     interaction_type.add(InteractionType.ACTIVATE)
                 elif "XRGrabInteractable" in file_name:
                     interaction_type.add(InteractionType.SELECT)
-                else:
-                    # TODO: check if it is custom interaction
+                elif self.is_custom_xr_interaction(cs_file):
+                    # logger.info(f"Unhandled interactable type: {file_name} ({cs_file})")
                     interaction_type.add(InteractionType.CUSTOM)
+                else:
+                    continue
             elif "Interactor" in file_name:
                 if "XRSocketInteractor" in file_name:
                     interaction_type.add(InteractionType.SOCKET)
                 else:
                     interaction_type.add(None)
             # Check custom XR interactions
-            elif custom_type := self.is_custom_xr_interaction(cs_file):
-                type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
-                interaction_type.add(type_tentative)
+            elif self.is_custom_xr_interaction(cs_file):
+                interaction_type.add(InteractionType.CUSTOM)
             else:
                 # logger.info(f"Unidentifiable interaction type: {file_name} ({cs_file})")
                 continue
@@ -483,7 +488,6 @@ class InteractionGraph:
         }
 
         # Add nodes and edges
-        # interactor_user = set()
         interactors, interactables = self.get_interactors_interactables()
         interactor_user = None
         interactor_socket = set()

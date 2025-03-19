@@ -188,9 +188,7 @@ class InteractionGraph:
         """
         # If there are modifications related to the interaction layer is done within the scene
         if instance:
-            for mod in instance.m_Modification["m_Modifications"]:
-                if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
-                    return mod.get("value")
+            return self._extract_interaction_layer_from_modification(instance.m_Modification["m_Modifications"])
         elif prefab_source:
             # TODO: If there are no modifications related to the interaction layer, check the prefab source
             pass
@@ -198,10 +196,18 @@ class InteractionGraph:
             if entry := self.get_entry_by_anchor(obj_id):
                 if prefab_id := entry.m_PrefabInstance.get("fileID"):
                     if prefab_entry := self.get_entry_by_anchor(prefab_id):
-                        for mod in prefab_entry.m_Modification["m_Modifications"]:
-                            if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
-                                return mod.get("value")
+                        return self._extract_interaction_layer_from_modification(
+                            prefab_entry.m_Modification["m_Modifications"])
         return -1  # Assume the default interaction layer is -1
+
+    @staticmethod
+    def _extract_interaction_layer_from_modification(modifications):
+        """
+        Extract interaction layer value from modifications
+        """
+        for mod in modifications:
+            if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
+                return mod.get("value")
 
     @cache_result
     def is_custom_xr_interaction(self, cs_file_path):
@@ -415,13 +421,11 @@ class InteractionGraph:
             class_names=("MonoBehaviour",), attributes=("m_Delegates",))
         for delegate in delegates:
             obj_id = delegate.m_GameObject.get("fileID")
-            # TODO: check why the name could be None
             if self._get_prefab_name(obj_id):
                 ui = Interactable(name=self._get_prefab_name(obj_id),
                                   script=default_ui_interaction_script,
                                   interaction_type=default_ui_interaction_type,
-                                  interaction_layer=default_ui_interaction_layer
-                                  )
+                                  interaction_layer=default_ui_interaction_layer)
                 scene_uis.add(ui)
 
         def has_delegates_in_prefab(prefab, processed):
@@ -483,10 +487,7 @@ class InteractionGraph:
             InteractionType.ACTIVATE: 'lightsteelblue',
             InteractionType.SOCKET: 'khaki',
             InteractionType.CUSTOM: 'lime',
-            InteractionType.SELECT_TENTATIVE: 'rosybrown',
-            InteractionType.ACTIVATE_TENTATIVE: 'slategrey'
         }
-
         # Add nodes and edges
         interactors, interactables = self.get_interactors_interactables()
         interactor_user = None

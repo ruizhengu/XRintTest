@@ -6,8 +6,6 @@ class InteractionType(StrEnum):
     ACTIVATE = "activate"
     SOCKET = "socket"
     CUSTOM = "custom"
-    SELECT_TENTATIVE = "select_tentative"
-    ACTIVATE_TENTATIVE = "activate_tentative"
 
 
 class Interaction:

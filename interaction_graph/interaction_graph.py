@@ -10,7 +10,7 @@ from interactable import Interactable
 from interactor import Interactor
 from prefab import Prefab, PrefabType
 from interaction import Interaction, InteractionType
-import matplotlib as mpl
+from loguru import logger
 
 
 def log_execution_time(func):
@@ -23,7 +23,7 @@ def log_execution_time(func):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        print(f"Execution time: {end_time - start_time} seconds")
+        logger.info(f"Function: {func.__name__} Execution time: {end_time - start_time} seconds")
         return result
 
     return wrapper
@@ -244,14 +244,16 @@ class InteractionGraph:
         for asset in self.get_assets("*.cs.*"):
             file_name = asset.stem  # Get the file name without the suffix
             cs_file = asset.parent / asset.stem
-            interaction_type = set()
             # Skip deprecated and affordance files
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
+            interaction_type = set()
             guid = self.get_file_guid(asset)
             if guid in processed_guids:
                 continue
-            if "Interactable" in file_name:
+            if "XRKnob" in file_name:
+                interaction_type.add(InteractionType.SELECT)
+            elif "Interactable" in file_name:
                 if "XRBaseInteractable" in file_name:
                     interaction_type.add(InteractionType.ACTIVATE)
                 elif "XRGrabInteractable" in file_name:
@@ -259,33 +261,24 @@ class InteractionGraph:
                 else:
                     # TODO: check if it is custom interaction
                     interaction_type.add(InteractionType.CUSTOM)
-                interaction = Interaction(name=file_name,
-                                          file=cs_file,
-                                          guid=guid,
-                                          interaction_type=interaction_type)
-                processed_guids.add(guid)
-                scripts.add(interaction)
             elif "Interactor" in file_name:
                 if "XRSocketInteractor" in file_name:
                     interaction_type.add(InteractionType.SOCKET)
                 else:
                     interaction_type.add(None)
-                interaction = Interaction(name=file_name,
-                                          file=cs_file,
-                                          guid=guid,
-                                          interaction_type=interaction_type)
-                processed_guids.add(guid)
-                scripts.add(interaction)
             # Check custom XR interactions
             elif custom_type := self.is_custom_xr_interaction(cs_file):
                 type_tentative = InteractionType.ACTIVATE_TENTATIVE if "XRBaseInteractable" in custom_type else InteractionType.SELECT_TENTATIVE
                 interaction_type.add(type_tentative)
-                interaction = Interaction(name=file_name,
-                                          file=cs_file,
-                                          guid=guid,
-                                          interaction_type=interaction_type)
-                processed_guids.add(guid)
-                scripts.add(interaction)
+            else:
+                # logger.info(f"Unidentifiable interaction type: {file_name} ({cs_file})")
+                continue
+            interaction = Interaction(name=file_name,
+                                      file=cs_file,
+                                      guid=guid,
+                                      interaction_type=interaction_type)
+            processed_guids.add(guid)
+            scripts.add(interaction)
         return scripts
 
     @staticmethod
@@ -469,14 +462,13 @@ class InteractionGraph:
         interactors = prefab_results['interactors'].union(scene_results['interactors'])
         interactables = prefab_results['interactables'].union(scene_results['interactables']).union(uis)
         interactables_3d = prefab_results['interactables'].union(scene_results['interactables'])
-        print(
+        logger.info(
             f"Interactors: {[_.name for _ in interactors]}, length: {len(interactors)}")
-        print(
+        logger.info(
             f"Interactables: {[' '.join((_.name, str(_.interaction_type))) for _ in interactables_3d]}, length: {len(interactables_3d)}")
-        print(f"UIs: {[_.name for _ in uis]}, length: {len(uis)}")
+        logger.info(f"UIs: {[_.name for _ in uis]}, length: {len(uis)}")
         return interactors, interactables
 
-    @log_execution_time
     def build_graph(self):
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]

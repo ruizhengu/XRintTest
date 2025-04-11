@@ -1,6 +1,9 @@
 import re
 from pathlib import Path
+
+import yaml
 from unityparser import UnityDocument
+import yaml
 import networkx as nx
 import matplotlib.pyplot as plt
 import time
@@ -69,6 +72,12 @@ class InteractionGraph:
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
+
+    def get_predefined_interactions(self):
+        yml = Path('./interaction.yml')
+        with open(yml) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+            print(data)
 
     @cache_result
     def get_assets(self, suffix="*.meta"):
@@ -539,3 +548,4 @@ if __name__ == '__main__':
     graph = InteractionGraph(project_root, scene_under_test)
     graph.test()
     # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
+

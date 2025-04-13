@@ -77,25 +77,27 @@ public class InteractoBot : MonoBehaviour
         // Find the simulated devices
         FindSimulatedDevices();
     }
-
+    /// <summary>
+    /// Find simulator devices, controllers and HMD
+    /// </summary>
     void FindSimulatedDevices()
     {
         var devices = InputSystem.devices;
         foreach (var device in devices)
         {
-            // Check if this is a simulated XR controller
-            if (device.name.Contains("XR Simulation") && device.name.Contains("LeftHand"))
+            // Debug.Log("" + device.name);
+            if (device.name == "XRSimulatedController")
             {
                 simulatedLeftControllerDevice = device;
                 Debug.Log("Found simulated left controller: " + device.name);
             }
-            else if (device.name.Contains("XR Simulation") && device.name.Contains("Head"))
+            // TODO: could check what does "XRSimulatedController1" do
+            else if (device.name == "XRSimulatedHMD")
             {
                 simulatedHMDDevice = device;
                 Debug.Log("Found simulated HMD: " + device.name);
             }
         }
-
         if (simulatedLeftControllerDevice == null)
         {
             Debug.LogWarning("Couldn't find simulated left controller device. Movement won't work.");
@@ -104,6 +106,7 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
+        // FindSimulatedDevices();
         cubeInteractable = GameObject.Find("Cube Interactable");
         leftController = GameObject.Find("Left Controller");
         // rightController = GameObject.Find("Right Controller");
@@ -145,36 +148,37 @@ public class InteractoBot : MonoBehaviour
         // {
         //     // Debug.Log("All interactables are interacted. Test stop.");
         // }
+
         // Update the controller position at fixed intervals
-        timeSinceLastUpdate += Time.deltaTime;
-        if (timeSinceLastUpdate >= updateInterval)
-        {
-            timeSinceLastUpdate = 0f;
+        // timeSinceLastUpdate += Time.deltaTime;
+        // if (timeSinceLastUpdate >= updateInterval)
+        // {
+        //     timeSinceLastUpdate = 0f;
 
-            if (cubeInteractable != null && leftController != null)
-            {
-                // Calculate direction to move
-                Vector3 currentPos = leftController.transform.position;
-                Vector3 targetPos = cubeInteractable.transform.position;
-                Vector3 direction = (targetPos - currentPos).normalized;
+        //     if (cubeInteractable != null && leftController != null)
+        //     {
+        //         // Calculate direction to move
+        //         Vector3 currentPos = leftController.transform.position;
+        //         Vector3 targetPos = cubeInteractable.transform.position;
+        //         Vector3 direction = (targetPos - currentPos).normalized;
 
-                // Only move if we're not already at the target
-                if (Vector3.Distance(currentPos, targetPos) > 0.1f)
-                {
-                    // Ensure we're in the right manipulation state
-                    EnsureControllerManipulationState(ControllerManipulationState.LeftController);
+        //         // Only move if we're not already at the target
+        //         if (Vector3.Distance(currentPos, targetPos) > 0.1f)
+        //         {
+        //             // Ensure we're in the right manipulation state
+        //             EnsureControllerManipulationState(ControllerManipulationState.LeftController);
 
-                    // Move towards the target
-                    MoveControllerInDirection(direction);
-                }
-            }
-        }
+        //             // Move towards the target
+        //             MoveControllerInDirection(direction);
+        //         }
+        //     }
+        // }
 
-        // Process the command queue
-        if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
-        {
-            StartCoroutine(ProcessKeyCommandQueue());
-        }
+        // // Process the command queue
+        // if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
+        // {
+        //     StartCoroutine(ProcessKeyCommandQueue());
+        // }
     }
 
     // Ensure we're in the desired controller manipulation state
@@ -189,24 +193,24 @@ public class InteractoBot : MonoBehaviour
         switch (targetState)
         {
             case ControllerManipulationState.LeftController:
-                key = Key.Digit1;
+                key = Key.LeftBracket;
                 break;
             case ControllerManipulationState.RightController:
-                key = Key.Digit2;
+                key = Key.RightBracket;
                 break;
             case ControllerManipulationState.Both:
                 // Press both keys simultaneously (handled specially)
-                EnqueueKeyCommand(new KeyCommand(Key.Digit1, true));
-                EnqueueKeyCommand(new KeyCommand(Key.Digit2, true));
-                EnqueueKeyCommand(new KeyCommand(Key.Digit1, false));
-                EnqueueKeyCommand(new KeyCommand(Key.Digit2, false));
+                EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, true));
+                EnqueueKeyCommand(new KeyCommand(Key.RightBracket, true));
+                EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, false));
+                EnqueueKeyCommand(new KeyCommand(Key.RightBracket, false));
                 currentManipulationState = targetState;
                 return;
             case ControllerManipulationState.HMD:
                 key = Key.Digit0;
                 break;
         }
-
+        Debug.Log("Key: " + key);
         if (key != Key.None)
         {
             // Enqueue key press and release

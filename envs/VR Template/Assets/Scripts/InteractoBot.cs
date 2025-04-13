@@ -106,12 +106,6 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
-        // FindSimulatedDevices();
-        cubeInteractable = GameObject.Find("Cube Interactable");
-        leftController = GameObject.Find("Left Controller");
-        // rightController = GameObject.Find("Right Controller");
-        // transform.position = Vector3.MoveTowards(transform.position, cubeInteractable.transform.position, 3.0f * Time.deltaTime);
-        // Debug.Log("leftController " + transform.position);
         // Time.timeScale = 3.0f;
         // // transform.position = explorer.RandomExploration();
         // // SetSelectValue(1.0f);
@@ -150,35 +144,34 @@ public class InteractoBot : MonoBehaviour
         // }
 
         // Update the controller position at fixed intervals
-        // timeSinceLastUpdate += Time.deltaTime;
-        // if (timeSinceLastUpdate >= updateInterval)
-        // {
-        //     timeSinceLastUpdate = 0f;
-
-        //     if (cubeInteractable != null && leftController != null)
-        //     {
-        //         // Calculate direction to move
-        //         Vector3 currentPos = leftController.transform.position;
-        //         Vector3 targetPos = cubeInteractable.transform.position;
-        //         Vector3 direction = (targetPos - currentPos).normalized;
-
-        //         // Only move if we're not already at the target
-        //         if (Vector3.Distance(currentPos, targetPos) > 0.1f)
-        //         {
-        //             // Ensure we're in the right manipulation state
-        //             EnsureControllerManipulationState(ControllerManipulationState.LeftController);
-
-        //             // Move towards the target
-        //             MoveControllerInDirection(direction);
-        //         }
-        //     }
-        // }
-
-        // // Process the command queue
-        // if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
-        // {
-        //     StartCoroutine(ProcessKeyCommandQueue());
-        // }
+        cubeInteractable = GameObject.Find("Cube Interactable");
+        leftController = GameObject.Find("Left Controller");
+        timeSinceLastUpdate += Time.deltaTime;
+        if (timeSinceLastUpdate >= updateInterval)
+        {
+            timeSinceLastUpdate = 0f;
+            if (cubeInteractable != null && leftController != null)
+            {
+                // Calculate direction to move
+                Vector3 currentPos = leftController.transform.position;
+                Vector3 targetPos = cubeInteractable.transform.position;
+                Vector3 direction = (targetPos - currentPos).normalized;
+                Debug.Log("direction: " + direction);
+                // Only move if we're not already at the target
+                if (Vector3.Distance(currentPos, targetPos) > 0.1f)
+                {
+                    // Ensure we're in the right manipulation state
+                    EnsureControllerManipulationState(ControllerManipulationState.LeftController);
+                    // Move towards the target
+                    MoveControllerInDirection(direction);
+                }
+            }
+        }
+        // Process the command queue
+        if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
+        {
+            StartCoroutine(ProcessKeyCommandQueue());
+        }
     }
 
     // Ensure we're in the desired controller manipulation state
@@ -206,9 +199,9 @@ public class InteractoBot : MonoBehaviour
                 EnqueueKeyCommand(new KeyCommand(Key.RightBracket, false));
                 currentManipulationState = targetState;
                 return;
-            case ControllerManipulationState.HMD:
-                key = Key.Digit0;
-                break;
+                // case ControllerManipulationState.HMD:
+                //     key = Key.Digit0;
+                //     break;
         }
         Debug.Log("Key: " + key);
         if (key != Key.None)
@@ -230,16 +223,13 @@ public class InteractoBot : MonoBehaviour
     IEnumerator ProcessKeyCommandQueue()
     {
         isProcessingKeyCommands = true;
-
         while (keyCommandQueue.Count > 0)
         {
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
-
             // Small delay between commands
             yield return new WaitForSeconds(0.05f);
         }
-
         isProcessingKeyCommands = false;
     }
 
@@ -248,6 +238,8 @@ public class InteractoBot : MonoBehaviour
     {
         var keyboard = InputSystem.GetDevice<Keyboard>();
         if (keyboard == null) return;
+
+        // keyCommandQueue = new KeyboardState(command.key)
 
         if (command.press)
         {
@@ -258,7 +250,7 @@ public class InteractoBot : MonoBehaviour
         else
         {
             // InputSystem.QueueStateEvent(keyboard, new KeyboardState().WithKeyUp(command.key));
-            // InputSystem.QueueStateEvent(keyboard, new KeyboardState().Release(command.key));
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
             Debug.Log("Releasing key: " + command.key);
         }
     }
@@ -267,9 +259,9 @@ public class InteractoBot : MonoBehaviour
     void MoveControllerInDirection(Vector3 direction)
     {
         // Map to input axes
-        float xAxis = direction.x;  // left/right
-        float yAxis = direction.y;  // up/down
-        float zAxis = direction.z;  // forward/back
+        float xAxis = direction.x;  // forward/back
+        float yAxis = direction.z;  // left/right
+        float zAxis = direction.y;  // up/down
 
         // Normalize to ensure we don't exceed 1.0 magnitude
         if (xAxis != 0 || yAxis != 0 || zAxis != 0)
@@ -286,7 +278,6 @@ public class InteractoBot : MonoBehaviour
 
             // Send input events to simulate controller movement
             EnqueueMovementKeys(xAxis, yAxis, zAxis);
-
             Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
         }
     }
@@ -295,23 +286,22 @@ public class InteractoBot : MonoBehaviour
     void EnqueueMovementKeys(float x, float y, float z)
     {
         // Determine which keys to press based on the direction
+        // TODO: could try to move to the direction with the largest distance first
         if (Mathf.Abs(x) > 0.1f)
         {
-            Key key = x > 0 ? Key.D : Key.A;
+            Key key = x > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
-
         if (Mathf.Abs(y) > 0.1f)
         {
             Key key = y > 0 ? Key.E : Key.Q;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
-
         if (Mathf.Abs(z) > 0.1f)
         {
-            Key key = z > 0 ? Key.W : Key.S;
+            Key key = z > 0 ? Key.D : Key.A;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }

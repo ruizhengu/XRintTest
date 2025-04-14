@@ -30,6 +30,7 @@ public class InteractoBot : MonoBehaviour
     private float timeSinceLastUpdate = 0f;
     private float interactionDistance = 2.0f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
+    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
     private enum ControllerManipulationState // Controller manipulation state
     {
         None,
@@ -102,14 +103,19 @@ public class InteractoBot : MonoBehaviour
         //     Debug.Log("interactable: " + interactable.Key.name);
         // }
 
-        GameObject closestInteractable = GetCloestInteractable();
-        Debug.Log("Closest Interactable: " + closestInteractable.name);
+        InteractableObject closestInteractable = GetCloestInteractable();
+        Debug.Log("Closest Interactable: " + closestInteractable.GetObject().name);
         // cubeInteractable = GameObject.Find("Cube Interactable");
         rightController = GameObject.Find("Right Controller");
+        if (rightController == null)
+        {
+            return;
+        }
         if (closestInteractable != null)
         {
+            GameObject closestObject = closestInteractable.GetObject();
             Vector3 currentPos = transform.position;
-            Vector3 targetPos = closestInteractable.transform.position;
+            Vector3 targetPos = closestObject.transform.position;
             // Rotation
             Vector3 targetDirection = (targetPos - currentPos).normalized;
             // Rotate towards target (y-axis only)
@@ -126,7 +132,7 @@ public class InteractoBot : MonoBehaviour
             // Move InteractoBot towards the target if too far from it
             if (distanceToTarget > interactionDistance)
             {
-                Vector3 direction = (targetPos - currentPos).normalized;
+                // Vector3 direction = (targetPos - currentPos).normalized;
                 transform.position = Vector3.MoveTowards(currentPos, targetPos, moveSpeed * Time.deltaTime);
                 Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
                 return; // Don't proceed with controller actions until close enough
@@ -137,28 +143,44 @@ public class InteractoBot : MonoBehaviour
             if (timeSinceLastUpdate >= updateInterval)
             {
                 timeSinceLastUpdate = 0f;
-                if (rightController != null)
-                {
-                    // Calculate direction to move
-                    Vector3 controllerCurrentPos = rightController.transform.position;
-                    Vector3 controllerTargetPos = closestInteractable.transform.position;
-                    Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
-                    Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
+                // if (rightController != null)
+                // {
+                // Calculate direction to move
+                Vector3 controllerCurrentPos = rightController.transform.position;
+                Vector3 controllerTargetPos = closestObject.transform.position;
+                Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
+                Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
 
-                    // Only move if not already at the target
-                    if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > 0.05f)
-                    {
-                        // Set to the left controller manipulation state
-                        EnsureControllerManipulationState(ControllerManipulationState.RightController);
-                        // Move towards the target
-                        MoveControllerInDirection(direction);
-                    }
-                    else
-                    {
-                        ControllerGripAction();
-                        // ResetControllerPosition();
-                    }
+                // Only move if not already at the target
+                if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
+                {
+                    // Set to the left controller manipulation state
+                    EnsureControllerManipulationState(ControllerManipulationState.RightController);
+                    // Move towards the target
+                    MoveControllerInDirection(direction);
                 }
+                else
+                {
+                    closestInteractable.SetVisited(true);
+                    ControllerGripAction();
+                    // Wait for grip success confirmation
+                    // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
+                    // {
+                    //     gripCheckTimer += Time.deltaTime;
+                    //     // return;
+                    // }
+
+                    // if (gripSuccess)
+                    // {
+                    //     Debug.Log("Grip action successful - object selected");
+                    // }
+                    // else
+                    // {
+                    //     Debug.Log("Grip action failed - no object selected");
+                    // }
+                    // ResetControllerPosition();
+                }
+                // }
             }
         }
 
@@ -312,10 +334,12 @@ public class InteractoBot : MonoBehaviour
 
     void ControllerGripAction()
     {
+        // gripSuccess = false;
+        // gripCheckTimer = 0f;
         Key gripKey = Key.G;
         EnqueueKeyCommand(new KeyCommand(gripKey, true));
         EnqueueKeyCommand(new KeyCommand(gripKey, false));
-        Debug.Log("Grip action executed.");
+        // Debug.Log("Grip action executed.");
     }
 
     void ControllerTriggerAction()
@@ -323,24 +347,45 @@ public class InteractoBot : MonoBehaviour
         Key triggerKey = Key.T;
         EnqueueKeyCommand(new KeyCommand(triggerKey, true));
         EnqueueKeyCommand(new KeyCommand(triggerKey, false));
-        Debug.Log("Trigger action executed.");
+        // Debug.Log("Trigger action executed.");
     }
 
-    public GameObject GetCloestInteractable()
+    // public GameObject GetCloestInteractable()
+    // {
+    //     GameObject closest = null;
+    //     float minDistance = Mathf.Infinity;
+    //     foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
+    //     {
+    //         var interactable = entry.Value;
+    //         if (!interactable.GetVisited())
+    //         {
+    //             GameObject go = interactable.GetObject();
+    //             float distance = Vector3.Distance(transform.position, go.transform.position);
+    //             if (distance < minDistance)
+    //             {
+    //                 minDistance = distance;
+    //                 closest = go;
+    //             }
+    //         }
+    //     }
+    //     return closest;
+    // }
+
+    public InteractableObject GetCloestInteractable()
     {
-        GameObject closest = null;
+        InteractableObject closest = null;
         float minDistance = Mathf.Infinity;
         foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
         {
-            var interactable = entry.Value;
+            InteractableObject interactable = entry.Value;
             if (!interactable.GetVisited())
             {
-                GameObject go = interactable.GetObject();
-                float distance = Vector3.Distance(transform.position, go.transform.position);
+                // InteractableObject go = interactable.GetObject();
+                float distance = Vector3.Distance(transform.position, interactable.GetObject().transform.position);
                 if (distance < minDistance)
                 {
                     minDistance = distance;
-                    closest = go;
+                    closest = interactable;
                 }
             }
         }
@@ -372,6 +417,7 @@ public class InteractoBot : MonoBehaviour
     {
         var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
         Debug.Log("OnSelectEntered: " + xrInteractable.gameObject.name);
+        // TODO: could use a dequeue to remove interactables that have been successfully triggered
     }
 
     private void OnSelectExited(SelectExitEventArgs args)

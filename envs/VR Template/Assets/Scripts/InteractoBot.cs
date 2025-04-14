@@ -63,7 +63,8 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         interactables = Utils.GetInteractables();
-        RegisterListener(); // 
+        RegisterListener(); // Register listeners for interactables
+        RegisterControlListeners(); // Register listeners for UI controls
         FindSimulatedDevices(); // Find the simulated devices
     }
 
@@ -146,7 +147,15 @@ public class InteractoBot : MonoBehaviour
                 else
                 {
                     closestInteractable.SetVisited(true);
-                    ControllerGripAction();
+                    if (closestInteractable.GetObjectType() == "3d")
+                    {
+                        ControllerGripAction();
+                    }
+                    else if (closestInteractable.GetObjectType() == "2d")
+                    {
+                        ControllerTriggerAction();
+                    }
+
                     // Wait for grip success confirmation
                     // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
                     // {
@@ -445,6 +454,49 @@ public class InteractoBot : MonoBehaviour
     {
         var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
         Debug.Log("OnDeactivated: " + xrInteractable.gameObject.name);
+    }
+
+    void RegisterControlListeners()
+    {
+        // Find all UI elements with EventTrigger components
+        EventTrigger[] uiTriggers = FindObjectsOfType<EventTrigger>();
+        foreach (EventTrigger trigger in uiTriggers)
+        {
+            // Create entry for pointer enter
+            EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
+            pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
+            pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
+            trigger.triggers.Add(pointerEnterEntry);
+
+            // Create entry for pointer exit
+            EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
+            pointerExitEntry.eventID = EventTriggerType.PointerExit;
+            pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
+            trigger.triggers.Add(pointerExitEntry);
+
+            // Create entry for pointer click
+            EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
+            pointerClickEntry.eventID = EventTriggerType.PointerClick;
+            pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
+            trigger.triggers.Add(pointerClickEntry);
+
+            // Debug.Log($"Registered UI listeners for: {trigger.gameObject.name}");
+        }
+    }
+
+    private void OnPointerEnter(PointerEventData eventData)
+    {
+        Debug.Log($"Pointer entered UI: {eventData.pointerEnter.name}");
+    }
+
+    private void OnPointerExit(PointerEventData eventData)
+    {
+        Debug.Log($"Pointer exited UI: {eventData.pointerEnter.name}");
+    }
+
+    private void OnPointerClick(PointerEventData eventData)
+    {
+        Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
     }
 
     // public class ControllerAction

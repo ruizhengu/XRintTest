@@ -10,15 +10,15 @@ using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
-public enum XRDeviceState { HMD, LeftController, RightController };
+// public enum XRDeviceState { HMD, LeftController, RightController };
 
 public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
-    public ControllerAction controllerAction;
+    // public ControllerAction controllerAction;
     public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables = new Dictionary<GameObject, InteractableIdentification.InteractableInfo>();
-    public XRDeviceState deviceState = XRDeviceState.HMD;
+    // public XRDeviceState deviceState = XRDeviceState.HMD;
     public GameObject leftController;
     public GameObject rightController;
     public GameObject cubeInteractable;
@@ -26,12 +26,12 @@ public class InteractoBot : MonoBehaviour
     // Input device references
     private InputDevice simulatedLeftControllerDevice;
     private InputDevice simulatedHMDDevice;
-
+    private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 3.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
-
+    private float interactionDistance = 2.0f; // The distance for transiting from user movement to controller interaction
     // Controller manipulation state
     private enum ControllerManipulationState
     {
@@ -54,7 +54,6 @@ public class InteractoBot : MonoBehaviour
     {
         public Key key;
         public bool press; // true for press, false for release
-
         public KeyCommand(Key key, bool press)
         {
             this.key = key;
@@ -73,19 +72,18 @@ public class InteractoBot : MonoBehaviour
     {
         interactables = interactableIdentification.GetInteractables();
         ResigterListener();
-
         // Find the simulated devices
         FindSimulatedDevices();
     }
+
     /// <summary>
-    /// Find simulator devices, controllers and HMD
+    /// Find simulator devices (i.e., controllers and HMD)
     /// </summary>
     void FindSimulatedDevices()
     {
         var devices = InputSystem.devices;
         foreach (var device in devices)
         {
-            // Debug.Log("" + device.name);
             if (device.name == "XRSimulatedController")
             {
                 simulatedLeftControllerDevice = device;
@@ -106,72 +104,53 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
-        Time.timeScale = 3.0f;
-        // // transform.position = explorer.RandomExploration();
-        // // SetSelectValue(1.0f);
-        // // SetActivateValue(1.0f);
-        // if (Keyboard.current.oKey.wasPressedThisFrame)
-        // {
-        //     Utils.StartSelect();
-        // }
-        // if (Keyboard.current.pKey.wasPressedThisFrame)
-        // {
-        //     StartCoroutine(ActivateAndRelease(0.5f));
-        // }
-        // // transform.position = explorer.RandomExploration();
-        // GameObject targetInteractable = GetCloestInteractable();
-        // if (targetInteractable && !controllerAction.GetMovementCompleted())
-        // {
-        //     // var (updatePos, updateRot) = explorer.GreedyExploration(targetInteractable);
-        //     var (updatePos, updateRot) = explorer.EasyExploration(targetInteractable);
-        //     transform.SetPositionAndRotation(updatePos, updateRot);
-        //     Vector3 targetPos = explorer.GameObjectOffset(targetInteractable);
-        //     // if (transform.position == targetPos)
-        //     if (Vector3.Distance(transform.position, targetPos) < 0.5f)
-        //     {
-        //         Debug.Log("Visited: " + targetInteractable.name);
-        //         interactables[targetInteractable].SetVisited(true);
-        //         SwitchDeviceState(XRDeviceState.LeftController);
-        //         // StartCoroutine(controllerAction.ControllerMovement("left", targetPos));
-        //         controllerAction.ControllerMovement("left", targetPos);
-        //     }
-        //     controllerAction.ControllerMovement("left", targetPos);
-        //     // StartCoroutine(MoveAndRotate(targetInteractable, 0.5f));
-        // }
-        // else
-        // {
-        //     // Debug.Log("All interactables are interacted. Test stop.");
-        // }
-
-        // Update the controller position at fixed intervals
+        Time.timeScale = gameSpeed;
         cubeInteractable = GameObject.Find("Cube Interactable");
         rightController = GameObject.Find("Right Controller");
-        timeSinceLastUpdate += Time.deltaTime;
-        if (timeSinceLastUpdate >= updateInterval)
+        if (cubeInteractable != null)
         {
-            timeSinceLastUpdate = 0f;
-            if (cubeInteractable != null && rightController != null)
+            Vector3 currentPos = transform.position;
+            Vector3 targetPos = cubeInteractable.transform.position;
+            float distanceToTarget = Vector3.Distance(currentPos, targetPos);
+            // Move InteractoBot towards the target if too far from it
+            if (distanceToTarget > interactionDistance)
             {
-                // Calculate direction to move
-                Vector3 currentPos = rightController.transform.position;
-                Vector3 targetPos = cubeInteractable.transform.position;
                 Vector3 direction = (targetPos - currentPos).normalized;
-                Debug.DrawLine(currentPos, currentPos + direction * 10, Color.red, Mathf.Infinity);
-                // Only move if not already at the target
-                if (Vector3.Distance(currentPos, targetPos) > 0.1f)
+                transform.position = Vector3.MoveTowards(currentPos, targetPos, moveSpeed * Time.deltaTime);
+                Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
+                return; // Don't proceed with controller actions until close enough
+            }
+
+            // Once it's close enough, proceed with controller actions
+            timeSinceLastUpdate += Time.deltaTime;
+            if (timeSinceLastUpdate >= updateInterval)
+            {
+                timeSinceLastUpdate = 0f;
+                if (rightController != null)
                 {
-                    // Set to the left controller manipulation state
-                    EnsureControllerManipulationState(ControllerManipulationState.RightController);
-                    // Move towards the target
-                    MoveControllerInDirection(direction);
-                }
-                else
-                {
-                    ControllerGripAction();
-                    ResetControllerPosition();
+                    // Calculate direction to move
+                    Vector3 controllerCurrentPos = rightController.transform.position;
+                    Vector3 controllerTargetPos = cubeInteractable.transform.position;
+                    Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
+                    Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
+
+                    // Only move if not already at the target
+                    if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > 0.1f)
+                    {
+                        // Set to the left controller manipulation state
+                        EnsureControllerManipulationState(ControllerManipulationState.RightController);
+                        // Move towards the target
+                        MoveControllerInDirection(direction);
+                    }
+                    else
+                    {
+                        ControllerGripAction();
+                        ResetControllerPosition();
+                    }
                 }
             }
         }
+
         // Process the command queue
         if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
         {
@@ -245,13 +224,13 @@ public class InteractoBot : MonoBehaviour
         if (keyboard == null) return;
         if (command.press)
         {
+            // Pressing the key
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(command.key));
-            // Debug.Log("Pressing key: " + command.key);
         }
         else
         {
+            // Releasing the key
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-            // Debug.Log("Releasing key: " + command.key);
         }
     }
 
@@ -333,28 +312,28 @@ public class InteractoBot : MonoBehaviour
         Debug.Log("Trigger action executed.");
     }
 
-    public void SwitchDeviceState(XRDeviceState state)
-    {
-        if (deviceState != state)
-        {
-            if (state == XRDeviceState.HMD)
-            {
-                Utils.SwitchDeviceStateHMD();
-                deviceState = XRDeviceState.HMD;
-            }
-            else if (state == XRDeviceState.LeftController)
-            {
-                Utils.SwitchDeviceStateLeftController();
-                deviceState = XRDeviceState.LeftController;
-            }
-            else if (state == XRDeviceState.RightController)
-            {
-                Utils.SwitchDeviceStateRightController();
-                deviceState = XRDeviceState.RightController;
-            }
-            Debug.Log("Swtich device state to: " + deviceState);
-        }
-    }
+    // public void SwitchDeviceState(XRDeviceState state)
+    // {
+    //     if (deviceState != state)
+    //     {
+    //         if (state == XRDeviceState.HMD)
+    //         {
+    //             Utils.SwitchDeviceStateHMD();
+    //             deviceState = XRDeviceState.HMD;
+    //         }
+    //         else if (state == XRDeviceState.LeftController)
+    //         {
+    //             Utils.SwitchDeviceStateLeftController();
+    //             deviceState = XRDeviceState.LeftController;
+    //         }
+    //         else if (state == XRDeviceState.RightController)
+    //         {
+    //             Utils.SwitchDeviceStateRightController();
+    //             deviceState = XRDeviceState.RightController;
+    //         }
+    //         Debug.Log("Swtich device state to: " + deviceState);
+    //     }
+    // }
 
     IEnumerator ActivateAndRelease(float duration)
     {
@@ -466,67 +445,67 @@ public class InteractoBot : MonoBehaviour
         Debug.Log("OnDeactivated: " + xrInteractable.gameObject.name);
     }
 
-    public class ControllerAction
-    {
-        private GameObject controller;
-        private float controllerMovementStep = 1f;
-        private bool movementCompleted;
-        private bool interactionCompleted;
-        // private string controllerType;
+    // public class ControllerAction
+    // {
+    //     private GameObject controller;
+    //     private float controllerMovementStep = 1f;
+    //     private bool movementCompleted;
+    //     private bool interactionCompleted;
+    //     // private string controllerType;
 
-        public ControllerAction(string controllerType)
-        {
-            if (controllerType == "left")
-            {
-                controller = GameObject.FindWithTag("LeftController");
-            }
-            else if (controllerType == "right")
-            {
-                controller = GameObject.FindWithTag("RightController");
-            }
-            else
-            {
-                Debug.LogError("Please create the controller with a valid type");
-            }
-        }
+    //     public ControllerAction(string controllerType)
+    //     {
+    //         if (controllerType == "left")
+    //         {
+    //             controller = GameObject.FindWithTag("LeftController");
+    //         }
+    //         else if (controllerType == "right")
+    //         {
+    //             controller = GameObject.FindWithTag("RightController");
+    //         }
+    //         else
+    //         {
+    //             Debug.LogError("Please create the controller with a valid type");
+    //         }
+    //     }
 
-        public void GetControllerInstance(string controllerType)
-        {
-            if (controllerType == "left")
-            {
-                controller = GameObject.FindWithTag("LeftController");
-            }
-            else if (controllerType == "right")
-            {
-                controller = GameObject.FindWithTag("RightController");
-            }
-            else
-            {
-                Debug.LogError("Please create the controller with a valid type");
-            }
-        }
-        public void ControllerMovement(string controllerType, Vector3 targetPos)
-        {
-            GetControllerInstance(controllerType);
-            Debug.Log("ControllerMovement--Controller Pose" + controller.transform.position);
-            Debug.Log("ControllerMovement--Target Pose" + targetPos);
-            controller.transform.position = Vector3.MoveTowards(
-                controller.transform.position,
-                targetPos,
-                controllerMovementStep * Time.deltaTime
-            );
-            // yield return new WaitForSeconds(0.0001f);
-        }
+    //     public void GetControllerInstance(string controllerType)
+    //     {
+    //         if (controllerType == "left")
+    //         {
+    //             controller = GameObject.FindWithTag("LeftController");
+    //         }
+    //         else if (controllerType == "right")
+    //         {
+    //             controller = GameObject.FindWithTag("RightController");
+    //         }
+    //         else
+    //         {
+    //             Debug.LogError("Please create the controller with a valid type");
+    //         }
+    //     }
+    //     public void ControllerMovement(string controllerType, Vector3 targetPos)
+    //     {
+    //         GetControllerInstance(controllerType);
+    //         Debug.Log("ControllerMovement--Controller Pose" + controller.transform.position);
+    //         Debug.Log("ControllerMovement--Target Pose" + targetPos);
+    //         controller.transform.position = Vector3.MoveTowards(
+    //             controller.transform.position,
+    //             targetPos,
+    //             controllerMovementStep * Time.deltaTime
+    //         );
+    //         // yield return new WaitForSeconds(0.0001f);
+    //     }
 
-        public void SetMovementCompleted(bool flag)
-        {
-            movementCompleted = flag;
-        }
+    //     public void SetMovementCompleted(bool flag)
+    //     {
+    //         movementCompleted = flag;
+    //     }
 
-        public bool GetMovementCompleted()
-        {
-            return movementCompleted;
-        }
+    //     public bool GetMovementCompleted()
+    //     {
+    //         return movementCompleted;
+    //     }
 
-    }
+    // }
 }

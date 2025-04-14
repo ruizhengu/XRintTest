@@ -106,7 +106,7 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
-        // Time.timeScale = 3.0f;
+        Time.timeScale = 3.0f;
         // // transform.position = explorer.RandomExploration();
         // // SetSelectValue(1.0f);
         // // SetActivateValue(1.0f);
@@ -145,29 +145,29 @@ public class InteractoBot : MonoBehaviour
 
         // Update the controller position at fixed intervals
         cubeInteractable = GameObject.Find("Cube Interactable");
-        leftController = GameObject.Find("Left Controller");
+        rightController = GameObject.Find("Right Controller");
         timeSinceLastUpdate += Time.deltaTime;
         if (timeSinceLastUpdate >= updateInterval)
         {
             timeSinceLastUpdate = 0f;
-            if (cubeInteractable != null && leftController != null)
+            if (cubeInteractable != null && rightController != null)
             {
                 // Calculate direction to move
-                Vector3 currentPos = leftController.transform.position;
+                Vector3 currentPos = rightController.transform.position;
                 Vector3 targetPos = cubeInteractable.transform.position;
                 Vector3 direction = (targetPos - currentPos).normalized;
-                // Debug.Log("direction: " + direction);
                 Debug.DrawLine(currentPos, currentPos + direction * 10, Color.red, Mathf.Infinity);
-                // Only move if we're not already at the target
+                // Only move if not already at the target
                 if (Vector3.Distance(currentPos, targetPos) > 0.1f)
                 {
-                    // Ensure we're in the right manipulation state
-                    EnsureControllerManipulationState(ControllerManipulationState.LeftController);
+                    // Set to the left controller manipulation state
+                    EnsureControllerManipulationState(ControllerManipulationState.RightController);
                     // Move towards the target
                     MoveControllerInDirection(direction);
                 }
                 else
                 {
+                    ControllerGripAction();
                     ResetControllerPosition();
                 }
             }
@@ -246,39 +246,35 @@ public class InteractoBot : MonoBehaviour
         if (command.press)
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(command.key));
-            Debug.Log("Pressing key: " + command.key);
+            // Debug.Log("Pressing key: " + command.key);
         }
         else
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-            Debug.Log("Releasing key: " + command.key);
+            // Debug.Log("Releasing key: " + command.key);
         }
     }
 
     // Move the controller in the given direction using input simulation
     void MoveControllerInDirection(Vector3 direction)
     {
-        // Map to input axes
         float xAxis = direction.x;  // forward/back
         float yAxis = direction.y;  // up/down
         float zAxis = direction.z;  // left/right
-
-        // Normalize to ensure we don't exceed 1.0 magnitude
         if (xAxis != 0 || yAxis != 0 || zAxis != 0)
         {
+            // Normalise to ensure don't exceed 1.0 magnitude
             float magnitude = Mathf.Sqrt(xAxis * xAxis + yAxis * yAxis + zAxis * zAxis);
             xAxis /= magnitude;
             yAxis /= magnitude;
             zAxis /= magnitude;
-
             // Reduce magnitude to avoid extreme movements
             xAxis *= 0.5f;
             yAxis *= 0.5f;
             zAxis *= 0.5f;
-
             // Send input events to simulate controller movement
             EnqueueMovementKeys(xAxis, yAxis, zAxis);
-            Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
+            // Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
         }
     }
 
@@ -317,6 +313,24 @@ public class InteractoBot : MonoBehaviour
     {
         Key resetKey = Key.R;
         EnqueueKeyCommand(new KeyCommand(resetKey, true));
+        EnqueueKeyCommand(new KeyCommand(resetKey, false));
+        Debug.Log("Controller reset.");
+    }
+
+    void ControllerGripAction()
+    {
+        Key gripKey = Key.G;
+        EnqueueKeyCommand(new KeyCommand(gripKey, true));
+        EnqueueKeyCommand(new KeyCommand(gripKey, false));
+        Debug.Log("Grip action executed.");
+    }
+
+    void ControllerTriggerAction()
+    {
+        Key triggerKey = Key.T;
+        EnqueueKeyCommand(new KeyCommand(triggerKey, true));
+        EnqueueKeyCommand(new KeyCommand(triggerKey, false));
+        Debug.Log("Trigger action executed.");
     }
 
     public void SwitchDeviceState(XRDeviceState state)
@@ -327,7 +341,6 @@ public class InteractoBot : MonoBehaviour
             {
                 Utils.SwitchDeviceStateHMD();
                 deviceState = XRDeviceState.HMD;
-
             }
             else if (state == XRDeviceState.LeftController)
             {
@@ -416,6 +429,7 @@ public class InteractoBot : MonoBehaviour
             var interactableType = entry.Value.GetObjectType();
             if (grabInteractable != null && interactableType == "3d")
             {
+                // Debug.Log(entry.Key);
                 grabInteractable.selectEntered.AddListener(OnSelectEntered);
                 grabInteractable.selectExited.AddListener(OnSelectExited);
             }

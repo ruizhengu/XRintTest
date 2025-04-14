@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 
 public class InteractableObject
 {
-  // TODO add a ''visited'' property, distinguish ''interacted'' and ''visited''
   GameObject interactable;
   bool interacted;
   bool visited;

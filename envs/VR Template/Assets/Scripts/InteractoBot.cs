@@ -14,7 +14,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class InteractoBot : MonoBehaviour
 {
-    public SceneExplore explorer;
+    // public SceneExplore explorer;
     public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
     public GameObject leftController;
     public GameObject rightController;
@@ -55,12 +55,10 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    void Awake()
-    {
-        explorer = new SceneExplore(transform);
-        // interactableIdentification = new InteractableIdentification();
-        // controllerAction = new ControllerAction("left");
-    }
+    // void Awake()
+    // {
+    //     explorer = new SceneExplore(transform);
+    // }
 
     void Start()
     {
@@ -98,14 +96,7 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
-        // foreach (KeyValuePair<GameObject, InteractableObject> interactable in interactables)
-        // {
-        //     Debug.Log("interactable: " + interactable.Key.name);
-        // }
-
         InteractableObject closestInteractable = GetCloestInteractable();
-        Debug.Log("Closest Interactable: " + closestInteractable.GetObject().name);
-        // cubeInteractable = GameObject.Find("Cube Interactable");
         rightController = GameObject.Find("Right Controller");
         if (rightController == null)
         {
@@ -127,9 +118,8 @@ public class InteractoBot : MonoBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
                 return; // Don't proceed with controller actions until angle difference is small enough
             }
-            // Movement
+            // Player Movement
             float distanceToTarget = Vector3.Distance(currentPos, targetPos);
-            // Move InteractoBot towards the target if too far from it
             if (distanceToTarget > interactionDistance)
             {
                 // Vector3 direction = (targetPos - currentPos).normalized;
@@ -137,24 +127,18 @@ public class InteractoBot : MonoBehaviour
                 Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
                 return; // Don't proceed with controller actions until close enough
             }
-
-            // Once it's close enough, proceed with controller actions
             timeSinceLastUpdate += Time.deltaTime;
             if (timeSinceLastUpdate >= updateInterval)
             {
                 timeSinceLastUpdate = 0f;
-                // if (rightController != null)
-                // {
-                // Calculate direction to move
+                // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
                 Vector3 controllerTargetPos = closestObject.transform.position;
                 Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
                 Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
-
-                // Only move if not already at the target
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
-                    // Set to the left controller manipulation state
+                    // Set to the right controller manipulation state
                     EnsureControllerManipulationState(ControllerManipulationState.RightController);
                     // Move towards the target
                     MoveControllerInDirection(direction);
@@ -178,12 +162,10 @@ public class InteractoBot : MonoBehaviour
                     // {
                     //     Debug.Log("Grip action failed - no object selected");
                     // }
-                    // ResetControllerPosition();
+                    ResetControllerPosition();
                 }
-                // }
             }
         }
-
         // Process the command queue
         if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
         {
@@ -286,7 +268,7 @@ public class InteractoBot : MonoBehaviour
             zAxis *= 0.5f;
             // Send input events to simulate controller movement
             EnqueueMovementKeys(xAxis, yAxis, zAxis);
-            Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
+            // Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
         }
     }
 
@@ -303,21 +285,18 @@ public class InteractoBot : MonoBehaviour
             Key key = x > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
-            Debug.Log("Moving X");
         }
         if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
         {
             Key key = y > 0 ? Key.E : Key.Q;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
-            Debug.Log("Moving Y");
         }
         if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
         {
             Key key = z > 0 ? Key.A : Key.D;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
-            Debug.Log("Moving Z");
         }
     }
 
@@ -349,27 +328,6 @@ public class InteractoBot : MonoBehaviour
         EnqueueKeyCommand(new KeyCommand(triggerKey, false));
         // Debug.Log("Trigger action executed.");
     }
-
-    // public GameObject GetCloestInteractable()
-    // {
-    //     GameObject closest = null;
-    //     float minDistance = Mathf.Infinity;
-    //     foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
-    //     {
-    //         var interactable = entry.Value;
-    //         if (!interactable.GetVisited())
-    //         {
-    //             GameObject go = interactable.GetObject();
-    //             float distance = Vector3.Distance(transform.position, go.transform.position);
-    //             if (distance < minDistance)
-    //             {
-    //                 minDistance = distance;
-    //                 closest = go;
-    //             }
-    //         }
-    //     }
-    //     return closest;
-    // }
 
     public InteractableObject GetCloestInteractable()
     {
@@ -413,11 +371,62 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
+    void DequeueInteracted(string interactableName)
+    {
+        // Find the GameObject with the matching name
+        GameObject objectToRemove = null;
+        foreach (var entry in interactables)
+        {
+            if (entry.Key.name == interactableName)
+            {
+                objectToRemove = entry.Key;
+                break;
+            }
+        }
+
+        // If found, remove it from the dictionary
+        if (objectToRemove != null)
+        {
+            interactables.Remove(objectToRemove);
+            Debug.Log($"Removed interactable: {interactableName}");
+        }
+        else
+        {
+            Debug.LogWarning($"Interactable with name {interactableName} not found in dictionary");
+        }
+    }
+
+    void SetObjectInteracted(string interactableName)
+    {
+        // InteractableObject objectToRemove = null;
+        foreach (var entry in interactables)
+        {
+            if (entry.Key.name == interactableName)
+            {
+                entry.Value.SetInteracted(true);
+                Debug.Log($"Interactable: {interactableName} set to inteacted");
+                break;
+            }
+        }
+
+        // // If found, remove it from the dictionary
+        // if (objectToRemove != null)
+        // {
+        //     interactables.Remove(objectToRemove);
+        //     Debug.Log($"Removed interactable: {interactableName}");
+        // }
+        // else
+        // {
+        //     Debug.LogWarning($"Interactable with name {interactableName} not found in dictionary");
+        // }
+    }
+    // TODO: add listeners for controls
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
         var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
         Debug.Log("OnSelectEntered: " + xrInteractable.gameObject.name);
         // TODO: could use a dequeue to remove interactables that have been successfully triggered
+        SetObjectInteracted(xrInteractable.gameObject.name);
     }
 
     private void OnSelectExited(SelectExitEventArgs args)

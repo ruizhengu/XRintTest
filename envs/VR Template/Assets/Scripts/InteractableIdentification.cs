@@ -5,10 +5,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-
 public class InteractableIdentification
 {
-  private static Dictionary<GameObject, InteractableInfo> interactables = new();
+  private static Dictionary<GameObject, InteractableObject> interactables = new();
   private static GameObject triggered;
   // private GameObject leftController;
   // private GameObject rightController;
@@ -41,21 +40,10 @@ public class InteractableIdentification
   //   );
   // }
 
-  public Dictionary<GameObject, InteractableInfo> GetInteractables()
+  public Dictionary<GameObject, InteractableObject> GetInteractables()
   {
     return interactables;
   }
-
-
-  // protected void IdentifyInteraction()
-  // {
-  //   GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-  //   foreach (GameObject go in gos)
-  //   {
-  //     FetchControl(go);
-  //     FetchInteractable(go);
-  //   }
-  // }
 
   protected void FetchControl(GameObject go)
   {
@@ -63,7 +51,7 @@ public class InteractableIdentification
     if (r != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Triggerable: " + go.name);
-      interactables[go] = new InteractableInfo(go, "2d");
+      interactables[go] = new InteractableObject(go, "2d");
 
       // EventTrigger.Entry entry = new EventTrigger.Entry();
       // entry.eventID = EventTriggerType.PointerClick;
@@ -78,7 +66,7 @@ public class InteractableIdentification
     if (xrInteractable != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Interactable: " + go.name);
-      interactables[go] = new InteractableInfo(go, "3d");
+      interactables[go] = new InteractableObject(go, "3d");
     }
   }
 
@@ -89,71 +77,5 @@ public class InteractableIdentification
     //   Debug.Log("Triggered Recorded:" + controls[triggered]);
     //   controls[triggered].SetTrigger();
     // }
-  }
-
-  // public class ControlInfo
-  // {
-  //   GameObject control;
-  //   int triggered;
-  //   public ControlInfo(GameObject obj)
-  //   {
-  //     this.control = obj;
-  //     this.triggered = 0;
-  //   }
-  //   public GameObject getObject()
-  //   {
-  //     return this.control;
-  //   }
-  //   public int getTriggered()
-  //   {
-  //     return this.triggered;
-  //   }
-  //   public void SetTrigger()
-  //   {
-  //     this.triggered = this.triggered + 1;
-  //   }
-  // }
-
-  public class InteractableInfo
-  {
-    // TODO add a ''visited'' property, distinguish ''interacted'' and ''visited''
-    GameObject interactable;
-    bool interacted;
-    bool visited;
-    String type;
-    public InteractableInfo(GameObject go, String type)
-    {
-      this.interactable = go;
-      this.type = type;
-      this.interacted = false;
-    }
-    public GameObject GetObject()
-    {
-      return this.interactable;
-    }
-
-    public void SetInteracted(bool flag)
-    {
-      this.interacted = flag;
-    }
-    public bool GetInteracted()
-    {
-      return this.interacted;
-    }
-
-    public void SetVisited(bool flag)
-    {
-      this.visited = flag;
-    }
-
-    public bool GetVisited()
-    {
-      return this.visited;
-    }
-
-    public String GetObjectType()
-    {
-      return this.type;
-    }
   }
 }

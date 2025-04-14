@@ -17,7 +17,7 @@ public class InteractoBot : MonoBehaviour
     public SceneExplore explorer;
     public InteractableIdentification interactableIdentification;
     // public ControllerAction controllerAction;
-    public Dictionary<GameObject, InteractableIdentification.InteractableInfo> interactables = new Dictionary<GameObject, InteractableIdentification.InteractableInfo>();
+    public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
     // public XRDeviceState deviceState = XRDeviceState.HMD;
     public GameObject leftController;
     public GameObject rightController;
@@ -105,6 +105,10 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
+        foreach (KeyValuePair<GameObject, InteractableObject> interactable in interactables)
+        {
+            Debug.Log("interactable: " + interactable.Key.name);
+        }
         cubeInteractable = GameObject.Find("Cube Interactable");
         rightController = GameObject.Find("Right Controller");
         if (cubeInteractable != null)
@@ -335,13 +339,13 @@ public class InteractoBot : MonoBehaviour
     //     }
     // }
 
-    IEnumerator ActivateAndRelease(float duration)
-    {
-        var device = InputSystem.GetDevice<Mouse>();
-        InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
-        yield return new WaitForSeconds(duration);
-        InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left, false));
-    }
+    // IEnumerator ActivateAndRelease(float duration)
+    // {
+    //     var device = InputSystem.GetDevice<Mouse>();
+    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
+    //     yield return new WaitForSeconds(duration);
+    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left, false));
+    // }
 
     // public void SetSelectValue(float value)
     // {
@@ -359,7 +363,7 @@ public class InteractoBot : MonoBehaviour
     {
         GameObject closest = null;
         float minDistance = Mathf.Infinity;
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables) // test with the first interactable
+        foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
         {
             var interactableInfo = entry.Value;
             if (!interactableInfo.GetVisited())
@@ -402,7 +406,7 @@ public class InteractoBot : MonoBehaviour
 
     void ResigterListener()
     {
-        foreach (KeyValuePair<GameObject, InteractableIdentification.InteractableInfo> entry in interactables)
+        foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables)
         {
             var grabInteractable = entry.Key.GetComponent<XRGrabInteractable>();
             var interactableType = entry.Value.GetObjectType();

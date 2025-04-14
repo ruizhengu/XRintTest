@@ -15,25 +15,22 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 public class InteractoBot : MonoBehaviour
 {
     public SceneExplore explorer;
-    public InteractableIdentification interactableIdentification;
-    // public ControllerAction controllerAction;
     public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
-    // public XRDeviceState deviceState = XRDeviceState.HMD;
     public GameObject leftController;
     public GameObject rightController;
     public GameObject cubeInteractable;
-
     // Input device references
     private InputDevice simulatedLeftControllerDevice;
     private InputDevice simulatedHMDDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
-    private float moveSpeed = 3.0f;
+    private float moveSpeed = 1.0f;
+    private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
-    private float interactionDistance = 2.0f; // The distance for transiting from user movement to controller interaction
-    // Controller manipulation state
-    private enum ControllerManipulationState
+    private float interactionDistance = 2.0f; // The distance for transiting from movement to interaction
+    private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
+    private enum ControllerManipulationState // Controller manipulation state
     {
         None,
         LeftController,
@@ -41,14 +38,10 @@ public class InteractoBot : MonoBehaviour
         Both,
         HMD
     }
-
-    // Current state of controller manipulation
-    private ControllerManipulationState currentManipulationState = ControllerManipulationState.None;
-
+    private ControllerManipulationState currentManipulationState = ControllerManipulationState.None; // Default state
     // Queue for processing movement commands one at a time
     private Queue<KeyCommand> keyCommandQueue = new Queue<KeyCommand>();
     private bool isProcessingKeyCommands = false;
-
     // Struct to store key commands
     private struct KeyCommand
     {
@@ -64,16 +57,15 @@ public class InteractoBot : MonoBehaviour
     void Awake()
     {
         explorer = new SceneExplore(transform);
-        interactableIdentification = new InteractableIdentification();
+        // interactableIdentification = new InteractableIdentification();
         // controllerAction = new ControllerAction("left");
     }
 
     void Start()
     {
-        interactables = interactableIdentification.GetInteractables();
-        ResigterListener();
-        // Find the simulated devices
-        FindSimulatedDevices();
+        interactables = Utils.GetInteractables();
+        RegisterListener(); // 
+        FindSimulatedDevices(); // Find the simulated devices
     }
 
     /// <summary>
@@ -105,16 +97,31 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
-        foreach (KeyValuePair<GameObject, InteractableObject> interactable in interactables)
-        {
-            Debug.Log("interactable: " + interactable.Key.name);
-        }
-        cubeInteractable = GameObject.Find("Cube Interactable");
+        // foreach (KeyValuePair<GameObject, InteractableObject> interactable in interactables)
+        // {
+        //     Debug.Log("interactable: " + interactable.Key.name);
+        // }
+
+        GameObject closestInteractable = GetCloestInteractable();
+        Debug.Log("Closest Interactable: " + closestInteractable.name);
+        // cubeInteractable = GameObject.Find("Cube Interactable");
         rightController = GameObject.Find("Right Controller");
-        if (cubeInteractable != null)
+        if (closestInteractable != null)
         {
             Vector3 currentPos = transform.position;
-            Vector3 targetPos = cubeInteractable.transform.position;
+            Vector3 targetPos = closestInteractable.transform.position;
+            // Rotation
+            Vector3 targetDirection = (targetPos - currentPos).normalized;
+            // Rotate towards target (y-axis only)
+            targetDirection.y = 0;
+            float angle = Vector3.Angle(transform.forward, targetDirection);
+            if (angle > interactionAngle)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
+                return; // Don't proceed with controller actions until angle difference is small enough
+            }
+            // Movement
             float distanceToTarget = Vector3.Distance(currentPos, targetPos);
             // Move InteractoBot towards the target if too far from it
             if (distanceToTarget > interactionDistance)
@@ -134,12 +141,12 @@ public class InteractoBot : MonoBehaviour
                 {
                     // Calculate direction to move
                     Vector3 controllerCurrentPos = rightController.transform.position;
-                    Vector3 controllerTargetPos = cubeInteractable.transform.position;
+                    Vector3 controllerTargetPos = closestInteractable.transform.position;
                     Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
                     Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
 
                     // Only move if not already at the target
-                    if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > 0.1f)
+                    if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > 0.05f)
                     {
                         // Set to the left controller manipulation state
                         EnsureControllerManipulationState(ControllerManipulationState.RightController);
@@ -149,7 +156,7 @@ public class InteractoBot : MonoBehaviour
                     else
                     {
                         ControllerGripAction();
-                        ResetControllerPosition();
+                        // ResetControllerPosition();
                     }
                 }
             }
@@ -216,7 +223,7 @@ public class InteractoBot : MonoBehaviour
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
             // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(0.01f);
+            yield return new WaitForSeconds(0.005f);
         }
         isProcessingKeyCommands = false;
     }
@@ -257,7 +264,7 @@ public class InteractoBot : MonoBehaviour
             zAxis *= 0.5f;
             // Send input events to simulate controller movement
             EnqueueMovementKeys(xAxis, yAxis, zAxis);
-            // Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
+            Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
         }
     }
 
@@ -274,18 +281,21 @@ public class InteractoBot : MonoBehaviour
             Key key = x > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
+            Debug.Log("Moving X");
         }
         if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
         {
             Key key = y > 0 ? Key.E : Key.Q;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
+            Debug.Log("Moving Y");
         }
         if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
         {
             Key key = z > 0 ? Key.A : Key.D;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
+            Debug.Log("Moving Z");
         }
     }
 
@@ -316,95 +326,28 @@ public class InteractoBot : MonoBehaviour
         Debug.Log("Trigger action executed.");
     }
 
-    // public void SwitchDeviceState(XRDeviceState state)
-    // {
-    //     if (deviceState != state)
-    //     {
-    //         if (state == XRDeviceState.HMD)
-    //         {
-    //             Utils.SwitchDeviceStateHMD();
-    //             deviceState = XRDeviceState.HMD;
-    //         }
-    //         else if (state == XRDeviceState.LeftController)
-    //         {
-    //             Utils.SwitchDeviceStateLeftController();
-    //             deviceState = XRDeviceState.LeftController;
-    //         }
-    //         else if (state == XRDeviceState.RightController)
-    //         {
-    //             Utils.SwitchDeviceStateRightController();
-    //             deviceState = XRDeviceState.RightController;
-    //         }
-    //         Debug.Log("Swtich device state to: " + deviceState);
-    //     }
-    // }
-
-    // IEnumerator ActivateAndRelease(float duration)
-    // {
-    //     var device = InputSystem.GetDevice<Mouse>();
-    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
-    //     yield return new WaitForSeconds(duration);
-    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left, false));
-    // }
-
-    // public void SetSelectValue(float value)
-    // {
-    //     var device = InputSystem.GetDevice<Keyboard>();
-    //     InputSystem.QueueStateEvent(device, new KeyboardState(Key.G));
-    // }
-
-    // public void SetActivateValue(float value)
-    // {
-    //     var device = InputSystem.GetDevice<Mouse>();
-    //     InputSystem.QueueStateEvent(device, new MouseState().WithButton(MouseButton.Left));
-    // }
-
     public GameObject GetCloestInteractable()
     {
         GameObject closest = null;
         float minDistance = Mathf.Infinity;
         foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
         {
-            var interactableInfo = entry.Value;
-            if (!interactableInfo.GetVisited())
+            var interactable = entry.Value;
+            if (!interactable.GetVisited())
             {
-                GameObject obj = interactableInfo.GetObject();
-                float distance = Vector3.Distance(transform.position, obj.transform.position);
+                GameObject go = interactable.GetObject();
+                float distance = Vector3.Distance(transform.position, go.transform.position);
                 if (distance < minDistance)
                 {
                     minDistance = distance;
-                    closest = obj;
+                    closest = go;
                 }
             }
         }
         return closest;
     }
 
-    void GetPlayerTransform()
-    {
-        GameObject mainCamera = GameObject.FindWithTag("MainCamera");
-        // Debug.Log("mainCamera: (" + mainCamera.transform.position + ") (" + mainCamera.transform.rotation + ")");
-        GameObject leftController = GameObject.FindWithTag("LeftController");
-        if (leftController)
-        {
-            // Debug.Log("leftController: (" + leftController.transform.position + ") (" + leftController.transform.rotation + ")");
-        }
-        else
-        {
-            // Debug.Log("leftController not found");
-        }
-        GameObject rightController = GameObject.FindWithTag("RightController");
-        if (rightController)
-        {
-            // Debug.Log("rightController: (" + rightController.transform.position + ") (" + rightController.transform.rotation + ")");
-        }
-        else
-        {
-            // Debug.Log("rightController not found");
-        }
-    }
-
-    void ResigterListener()
+    void RegisterListener()
     {
         foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables)
         {

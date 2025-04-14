@@ -156,7 +156,8 @@ public class InteractoBot : MonoBehaviour
                 Vector3 currentPos = leftController.transform.position;
                 Vector3 targetPos = cubeInteractable.transform.position;
                 Vector3 direction = (targetPos - currentPos).normalized;
-                Debug.Log("direction: " + direction);
+                // Debug.Log("direction: " + direction);
+                Debug.DrawLine(currentPos, currentPos + direction * 10, Color.red, Mathf.Infinity);
                 // Only move if we're not already at the target
                 if (Vector3.Distance(currentPos, targetPos) > 0.1f)
                 {
@@ -164,6 +165,10 @@ public class InteractoBot : MonoBehaviour
                     EnsureControllerManipulationState(ControllerManipulationState.LeftController);
                     // Move towards the target
                     MoveControllerInDirection(direction);
+                }
+                else
+                {
+                    ResetControllerPosition();
                 }
             }
         }
@@ -227,8 +232,8 @@ public class InteractoBot : MonoBehaviour
         {
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
-            // Small delay between commands
-            yield return new WaitForSeconds(0.05f);
+            // Small delay between commands (granularity of movement)
+            yield return new WaitForSeconds(0.01f);
         }
         isProcessingKeyCommands = false;
     }
@@ -238,18 +243,13 @@ public class InteractoBot : MonoBehaviour
     {
         var keyboard = InputSystem.GetDevice<Keyboard>();
         if (keyboard == null) return;
-
-        // keyCommandQueue = new KeyboardState(command.key)
-
         if (command.press)
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(command.key));
-            // InputSystem.QueueStateEvent(keyboard, new KeyboardState.Press(command.key));
             Debug.Log("Pressing key: " + command.key);
         }
         else
         {
-            // InputSystem.QueueStateEvent(keyboard, new KeyboardState().WithKeyUp(command.key));
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
             Debug.Log("Releasing key: " + command.key);
         }
@@ -260,8 +260,8 @@ public class InteractoBot : MonoBehaviour
     {
         // Map to input axes
         float xAxis = direction.x;  // forward/back
-        float yAxis = direction.z;  // left/right
-        float zAxis = direction.y;  // up/down
+        float yAxis = direction.y;  // up/down
+        float zAxis = direction.z;  // left/right
 
         // Normalize to ensure we don't exceed 1.0 magnitude
         if (xAxis != 0 || yAxis != 0 || zAxis != 0)
@@ -282,29 +282,41 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    // Enqueue movement keys based on direction
+    /// <summary>
+    /// Enqueue movement keys based on direction
+    /// Greedy approach: move to the direction with largest distance first
+    /// Using key commands for movement
+    /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        // Determine which keys to press based on the direction
-        // TODO: could try to move to the direction with the largest distance first
-        if (Mathf.Abs(x) > 0.1f)
+        var directions = new[] { Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z) };
+        if (Mathf.Abs(x) == Mathf.Max(directions) && Mathf.Abs(x) > 0.1f)
         {
             Key key = x > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
-        if (Mathf.Abs(y) > 0.1f)
+        if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
         {
             Key key = y > 0 ? Key.E : Key.Q;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
-        if (Mathf.Abs(z) > 0.1f)
+        if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
         {
-            Key key = z > 0 ? Key.D : Key.A;
+            Key key = z > 0 ? Key.A : Key.D;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
+    }
+
+    /// <summary>
+    /// Reset controller position by XR Interaction Simulator shortcut
+    /// </summary>
+    void ResetControllerPosition()
+    {
+        Key resetKey = Key.R;
+        EnqueueKeyCommand(new KeyCommand(resetKey, true));
     }
 
     public void SwitchDeviceState(XRDeviceState state)

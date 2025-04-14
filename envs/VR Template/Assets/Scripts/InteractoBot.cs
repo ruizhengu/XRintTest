@@ -106,6 +106,7 @@ public class InteractoBot : MonoBehaviour
         if (closestInteractable != null)
         {
             GameObject closestObject = closestInteractable.GetObject();
+            // Debug.Log("closestObject: " + closestObject.name);
             Vector3 currentPos = transform.position;
             Vector3 targetPos = closestObject.transform.position;
             // Rotation
@@ -288,24 +289,46 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        var directions = new[] { Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z) };
-        if (Mathf.Abs(x) == Mathf.Max(directions) && Mathf.Abs(x) > 0.1f)
+        // var directions = new[] { Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z) };
+        // if (Mathf.Abs(x) == Mathf.Max(directions) && Mathf.Abs(x) > 0.1f)
+        // {
+        //     Key key = x > 0 ? Key.W : Key.S;
+        //     EnqueueKeyCommand(new KeyCommand(key, true));
+        //     EnqueueKeyCommand(new KeyCommand(key, false));
+        // }
+        // if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
+        // {
+        //     Key key = y > 0 ? Key.E : Key.Q;
+        //     EnqueueKeyCommand(new KeyCommand(key, true));
+        //     EnqueueKeyCommand(new KeyCommand(key, false));
+        // }
+        // if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
+        // {
+        //     Key key = z > 0 ? Key.A : Key.D;
+        //     EnqueueKeyCommand(new KeyCommand(key, true));
+        //     EnqueueKeyCommand(new KeyCommand(key, false));
+        // }
+        // TODO: Fix this
+        if (Mathf.Abs(x) > 0.1f && Mathf.Abs(x) < Mathf.Abs(y) && Mathf.Abs(x) < Mathf.Abs(z))
         {
             Key key = x > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
         }
-        if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
+        else
         {
-            Key key = y > 0 ? Key.E : Key.Q;
-            EnqueueKeyCommand(new KeyCommand(key, true));
-            EnqueueKeyCommand(new KeyCommand(key, false));
-        }
-        if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
-        {
-            Key key = z > 0 ? Key.A : Key.D;
-            EnqueueKeyCommand(new KeyCommand(key, true));
-            EnqueueKeyCommand(new KeyCommand(key, false));
+            if (Mathf.Abs(y) > 0.1f)
+            {
+                Key key = y > 0 ? Key.E : Key.Q;
+                EnqueueKeyCommand(new KeyCommand(key, true));
+                EnqueueKeyCommand(new KeyCommand(key, false));
+            }
+            if (Mathf.Abs(z) > 0.1f)
+            {
+                Key key = z > 0 ? Key.A : Key.D;
+                EnqueueKeyCommand(new KeyCommand(key, true));
+                EnqueueKeyCommand(new KeyCommand(key, false));
+            }
         }
     }
 

@@ -22,15 +22,15 @@ public class InteractoBot : MonoBehaviour
     // Input device references
     private InputDevice simulatedLeftControllerDevice;
     private InputDevice simulatedHMDDevice;
-    private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
+    private float gameSpeed = 5.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
-    private float interactionDistance = 2.0f; // The distance for transiting from movement to interaction
+    private float interactionDistance = 1.5f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
+    private float controllerMovementThreshold = 0.1f; // The distance of controller movement to continue interaction
     private enum ControllerManipulationState // Controller manipulation state
     {
         None,
@@ -106,7 +106,7 @@ public class InteractoBot : MonoBehaviour
         if (closestInteractable != null)
         {
             GameObject closestObject = closestInteractable.GetObject();
-            // Debug.Log("closestObject: " + closestObject.name);
+            Debug.Log("Closest Object: " + closestObject.name);
             Vector3 currentPos = transform.position;
             Vector3 targetPos = closestObject.transform.position;
             // Rotation
@@ -126,7 +126,7 @@ public class InteractoBot : MonoBehaviour
             {
                 // Vector3 direction = (targetPos - currentPos).normalized;
                 transform.position = Vector3.MoveTowards(currentPos, targetPos, moveSpeed * Time.deltaTime);
-                Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
+                // Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
                 return; // Don't proceed with controller actions until close enough
             }
             timeSinceLastUpdate += Time.deltaTime;
@@ -136,8 +136,10 @@ public class InteractoBot : MonoBehaviour
                 // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
                 Vector3 controllerTargetPos = closestObject.transform.position;
-                Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
-                Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
+                // Debug.Log("Controller Pos: " + controllerCurrentPos + ", Target Pos: " + controllerTargetPos);
+                // Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
+                Vector3 direction = controllerTargetPos - controllerCurrentPos;
+                // Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
                     // Set to the right controller manipulation state
@@ -237,7 +239,7 @@ public class InteractoBot : MonoBehaviour
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
             // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(0.005f);
+            yield return new WaitForSeconds(0.01f);
         }
         isProcessingKeyCommands = false;
     }
@@ -262,24 +264,33 @@ public class InteractoBot : MonoBehaviour
     // Move the controller in the given direction using input simulation
     void MoveControllerInDirection(Vector3 direction)
     {
-        float xAxis = direction.x;  // forward/back
-        float yAxis = direction.y;  // up/down
-        float zAxis = direction.z;  // left/right
-        if (xAxis != 0 || yAxis != 0 || zAxis != 0)
-        {
-            // Normalise to ensure don't exceed 1.0 magnitude
-            float magnitude = Mathf.Sqrt(xAxis * xAxis + yAxis * yAxis + zAxis * zAxis);
-            xAxis /= magnitude;
-            yAxis /= magnitude;
-            zAxis /= magnitude;
-            // Reduce magnitude to avoid extreme movements
-            xAxis *= 0.5f;
-            yAxis *= 0.5f;
-            zAxis *= 0.5f;
-            // Send input events to simulate controller movement
-            EnqueueMovementKeys(xAxis, yAxis, zAxis);
-            // Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
-        }
+        Vector3 controllerForward = rightController.transform.forward;
+        Vector3 controllerRight = rightController.transform.right;
+        Vector3 controllerUp = rightController.transform.up;
+        // float zAxis = direction.z;  // Forward/Back (W/S)
+        // float xAxis = direction.x;  // Left/Right (A/D)
+        // float yAxis = direction.y;  // Up/Down (Q/E)
+
+        float zAxis = Vector3.Dot(direction, controllerForward);
+        float xAxis = Vector3.Dot(direction, controllerRight);
+        float yAxis = Vector3.Dot(direction, controllerUp);
+
+        // if (xAxis != 0 || yAxis != 0 || zAxis != 0)
+        // {
+        //     // Normalise to ensure don't exceed 1.0 magnitude
+        //     // float magnitude = Mathf.Sqrt(xAxis * xAxis + yAxis * yAxis + zAxis * zAxis);
+        //     // xAxis /= magnitude;
+        //     // yAxis /= magnitude;
+        //     // zAxis /= magnitude;
+        //     // // Reduce magnitude to avoid extreme movements
+        //     // xAxis *= 0.5f;
+        //     // yAxis *= 0.5f;
+        //     // zAxis *= 0.5f;
+        //     // Send input events to simulate controller movement
+        //     EnqueueMovementKeys(xAxis, yAxis, zAxis);
+        //     Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
+        // }
+        EnqueueMovementKeys(xAxis, yAxis, zAxis);
     }
 
     /// <summary>
@@ -289,47 +300,36 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        // var directions = new[] { Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z) };
-        // if (Mathf.Abs(x) == Mathf.Max(directions) && Mathf.Abs(x) > 0.1f)
-        // {
-        //     Key key = x > 0 ? Key.W : Key.S;
-        //     EnqueueKeyCommand(new KeyCommand(key, true));
-        //     EnqueueKeyCommand(new KeyCommand(key, false));
-        // }
-        // if (Mathf.Abs(y) == Mathf.Max(directions) && Mathf.Abs(y) > 0.1f)
-        // {
-        //     Key key = y > 0 ? Key.E : Key.Q;
-        //     EnqueueKeyCommand(new KeyCommand(key, true));
-        //     EnqueueKeyCommand(new KeyCommand(key, false));
-        // }
-        // if (Mathf.Abs(z) == Mathf.Max(directions) && Mathf.Abs(z) > 0.1f)
-        // {
-        //     Key key = z > 0 ? Key.A : Key.D;
-        //     EnqueueKeyCommand(new KeyCommand(key, true));
-        //     EnqueueKeyCommand(new KeyCommand(key, false));
-        // }
-        // TODO: Fix this
-        if (Mathf.Abs(x) > 0.1f && Mathf.Abs(x) < Mathf.Abs(y) && Mathf.Abs(x) < Mathf.Abs(z))
+        const float threshold = 0.05f;
+        float absX = Mathf.Abs(x);
+        float absY = Mathf.Abs(y);
+        float absZ = Mathf.Abs(z);
+        // X-axis first policy
+        if (absZ > threshold)
         {
-            Key key = x > 0 ? Key.W : Key.S;
-            EnqueueKeyCommand(new KeyCommand(key, true));
-            EnqueueKeyCommand(new KeyCommand(key, false));
+            Key zKey = z > 0 ? Key.W : Key.S;
+            EnqueueKeyCommand(new KeyCommand(zKey, true));
+            EnqueueKeyCommand(new KeyCommand(zKey, false));
+            return; // Exit after handling X-axis
         }
-        else
+        // Z-axis last
+        if (absX > threshold)
         {
-            if (Mathf.Abs(y) > 0.1f)
-            {
-                Key key = y > 0 ? Key.E : Key.Q;
-                EnqueueKeyCommand(new KeyCommand(key, true));
-                EnqueueKeyCommand(new KeyCommand(key, false));
-            }
-            if (Mathf.Abs(z) > 0.1f)
-            {
-                Key key = z > 0 ? Key.A : Key.D;
-                EnqueueKeyCommand(new KeyCommand(key, true));
-                EnqueueKeyCommand(new KeyCommand(key, false));
-            }
+            Key xKey = x > 0 ? Key.D : Key.A;
+            EnqueueKeyCommand(new KeyCommand(xKey, true));
+            EnqueueKeyCommand(new KeyCommand(xKey, false));
+            return;
         }
+        // Y-axis second
+        if (absY > threshold)
+        {
+            Key yKey = y > 0 ? Key.E : Key.Q;
+            EnqueueKeyCommand(new KeyCommand(yKey, true));
+            EnqueueKeyCommand(new KeyCommand(yKey, false));
+            return; // Exit after handling Y-axis
+        }
+
+
     }
 
     /// <summary>
@@ -521,68 +521,4 @@ public class InteractoBot : MonoBehaviour
     {
         Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
     }
-
-    // public class ControllerAction
-    // {
-    //     private GameObject controller;
-    //     private float controllerMovementStep = 1f;
-    //     private bool movementCompleted;
-    //     private bool interactionCompleted;
-    //     // private string controllerType;
-
-    //     public ControllerAction(string controllerType)
-    //     {
-    //         if (controllerType == "left")
-    //         {
-    //             controller = GameObject.FindWithTag("LeftController");
-    //         }
-    //         else if (controllerType == "right")
-    //         {
-    //             controller = GameObject.FindWithTag("RightController");
-    //         }
-    //         else
-    //         {
-    //             Debug.LogError("Please create the controller with a valid type");
-    //         }
-    //     }
-
-    //     public void GetControllerInstance(string controllerType)
-    //     {
-    //         if (controllerType == "left")
-    //         {
-    //             controller = GameObject.FindWithTag("LeftController");
-    //         }
-    //         else if (controllerType == "right")
-    //         {
-    //             controller = GameObject.FindWithTag("RightController");
-    //         }
-    //         else
-    //         {
-    //             Debug.LogError("Please create the controller with a valid type");
-    //         }
-    //     }
-    //     public void ControllerMovement(string controllerType, Vector3 targetPos)
-    //     {
-    //         GetControllerInstance(controllerType);
-    //         Debug.Log("ControllerMovement--Controller Pose" + controller.transform.position);
-    //         Debug.Log("ControllerMovement--Target Pose" + targetPos);
-    //         controller.transform.position = Vector3.MoveTowards(
-    //             controller.transform.position,
-    //             targetPos,
-    //             controllerMovementStep * Time.deltaTime
-    //         );
-    //         // yield return new WaitForSeconds(0.0001f);
-    //     }
-
-    //     public void SetMovementCompleted(bool flag)
-    //     {
-    //         movementCompleted = flag;
-    //     }
-
-    //     public bool GetMovementCompleted()
-    //     {
-    //         return movementCompleted;
-    //     }
-
-    // }
 }

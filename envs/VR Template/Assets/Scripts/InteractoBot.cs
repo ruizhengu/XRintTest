@@ -31,7 +31,7 @@ public class InteractoBot : MonoBehaviour
     private float timeSinceLastUpdate = 0f;
     private float interactionDistance = 1.5f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.1f; // The distance of controller movement to continue interaction
+    private float controllerMovementThreshold = 0.01f; // The distance of controller movement to continue interaction
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -64,8 +64,8 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         interactables = Utils.GetInteractables();
-        RegisterListener(); // Register listeners for interactables
-        RegisterControlListeners(); // Register listeners for UI controls
+        RegisterListener(); // Register listeners for interactables and UIs
+        // RegisterControlListeners(); // Register listeners for UI controls
         FindSimulatedDevices(); // Find the simulated devices
         interactableCount = interactables.Count;
         Debug.Log("Number of Interactables in Scene: " + interactableCount);
@@ -292,7 +292,7 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        const float threshold = 0.05f;
+        float threshold = controllerMovementThreshold / 2;
         float absX = Mathf.Abs(x);
         float absY = Mathf.Abs(y);
         float absZ = Mathf.Abs(z);
@@ -328,25 +328,38 @@ public class InteractoBot : MonoBehaviour
         Key resetKey = Key.R;
         EnqueueKeyCommand(new KeyCommand(resetKey, true));
         EnqueueKeyCommand(new KeyCommand(resetKey, false));
-        // Debug.Log("Controller reset.");
     }
 
     void ControllerGripAction()
     {
-        // gripSuccess = false;
-        // gripCheckTimer = 0f;
+        StartCoroutine(HoldGripKey());
+    }
+
+    IEnumerator HoldGripKey()
+    {
         Key gripKey = Key.G;
+        // Press the key
         EnqueueKeyCommand(new KeyCommand(gripKey, true));
+        // Hold for a short duration (100ms)
+        yield return new WaitForSeconds(0.1f);
+        // Release the key
         EnqueueKeyCommand(new KeyCommand(gripKey, false));
-        // Debug.Log("Grip action executed.");
     }
 
     void ControllerTriggerAction()
     {
+        StartCoroutine(HoldTriggerKey());
+    }
+
+    IEnumerator HoldTriggerKey()
+    {
         Key triggerKey = Key.T;
+        // Press the key
         EnqueueKeyCommand(new KeyCommand(triggerKey, true));
+        // Hold for a short duration (100ms)
+        yield return new WaitForSeconds(0.1f);
+        // Release the key
         EnqueueKeyCommand(new KeyCommand(triggerKey, false));
-        // Debug.Log("Trigger action executed.");
     }
 
     /// <summary>
@@ -375,21 +388,41 @@ public class InteractoBot : MonoBehaviour
 
     void RegisterListener()
     {
+        // Register listeners for common interactable types
         foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables)
         {
-            var grabInteractable = entry.Key.GetComponent<XRGrabInteractable>();
-            var interactableType = entry.Value.GetObjectType();
-            if (grabInteractable != null && interactableType == "3d")
-            {
-                grabInteractable.selectEntered.AddListener(OnSelectEntered);
-                grabInteractable.selectExited.AddListener(OnSelectExited);
-            }
             var baseInteractable = entry.Key.GetComponent<XRBaseInteractable>();
-            if (baseInteractable != null && interactableType == "3d")
+            if (baseInteractable != null)
             {
+                baseInteractable.selectEntered.AddListener(OnSelectEntered);
+                baseInteractable.selectExited.AddListener(OnSelectExited);
                 baseInteractable.activated.AddListener(OnActivated);
                 baseInteractable.deactivated.AddListener(OnDeactivated);
             }
+        }
+        // Register EventTrigger listeners for UI elements
+        EventTrigger[] uiTriggers = FindObjectsOfType<EventTrigger>();
+        foreach (EventTrigger trigger in uiTriggers)
+        {
+            // Create entry for pointer enter
+            // EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
+            // pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
+            // pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
+            // trigger.triggers.Add(pointerEnterEntry);
+
+            // // Create entry for pointer exit
+            // EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
+            // pointerExitEntry.eventID = EventTriggerType.PointerExit;
+            // pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
+            // trigger.triggers.Add(pointerExitEntry);
+
+            // Create entry for pointer click
+            EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
+            pointerClickEntry.eventID = EventTriggerType.PointerClick;
+            pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
+            trigger.triggers.Add(pointerClickEntry);
+
+            // Debug.Log($"Registered UI listeners for: {trigger.gameObject.name}");
         }
     }
 
@@ -416,62 +449,42 @@ public class InteractoBot : MonoBehaviour
             {
                 count++;
             }
+            else
+            {
+                Debug.Log("Not Interacted Interactable: " + entry.Key.name);
+            }
         }
         return count;
     }
 
-    // TODO: add listeners for controls
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
-        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
-        Debug.Log("OnSelectEntered: " + xrInteractable.gameObject.name);
-        SetObjectInteracted(xrInteractable.gameObject.name);
+        var xrInteractable = args.interactableObject;
+        Debug.Log("OnSelectEntered: " + xrInteractable.transform.name);
+        SetObjectInteracted(xrInteractable.transform.name);
     }
 
     private void OnSelectExited(SelectExitEventArgs args)
     {
-        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
-        Debug.Log("OnSelectExited: " + xrInteractable.gameObject.name);
+        var xrInteractable = args.interactableObject;
+        Debug.Log("OnSelectExited: " + xrInteractable.transform.name);
     }
 
     private void OnActivated(ActivateEventArgs args)
     {
-        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
-        Debug.Log("OnActivated: " + xrInteractable.gameObject.name);
+        var interactable = args.interactableObject;
+        Debug.Log($"OnActivated: {interactable.transform.name}");
     }
 
     private void OnDeactivated(DeactivateEventArgs args)
     {
-        var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable;
-        Debug.Log("OnDeactivated: " + xrInteractable.gameObject.name);
+        var interactable = args.interactableObject;
+        Debug.Log($"OnDeactivated: {interactable.transform.name}");
     }
 
-    void RegisterControlListeners()
+    private void OnKnobValueChanged(float value)
     {
-        // Find all UI elements with EventTrigger components
-        EventTrigger[] uiTriggers = FindObjectsOfType<EventTrigger>();
-        foreach (EventTrigger trigger in uiTriggers)
-        {
-            // Create entry for pointer enter
-            // EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
-            // pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
-            // pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
-            // trigger.triggers.Add(pointerEnterEntry);
-
-            // // Create entry for pointer exit
-            // EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
-            // pointerExitEntry.eventID = EventTriggerType.PointerExit;
-            // pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
-            // trigger.triggers.Add(pointerExitEntry);
-
-            // Create entry for pointer click
-            EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
-            pointerClickEntry.eventID = EventTriggerType.PointerClick;
-            pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
-            trigger.triggers.Add(pointerClickEntry);
-
-            // Debug.Log($"Registered UI listeners for: {trigger.gameObject.name}");
-        }
+        Debug.Log($"Knob value changed to: {value}");
     }
 
     private void OnPointerEnter(PointerEventData eventData)

@@ -51,7 +51,7 @@ public static class Utils
 
       if (trigger != null && !interactables.ContainsKey(go))
       {
-        interactables[go] = new InteractableObject(go, "2d");
+        // interactables[go] = new InteractableObject(go, "2d");
       }
       else if (xrInteractable != null && !interactables.ContainsKey(go))
       {

@@ -22,7 +22,7 @@ public class InteractoBot : MonoBehaviour
     // Input device references
     private InputDevice simulatedLeftControllerDevice;
     private InputDevice simulatedHMDDevice;
-    private float gameSpeed = 5.0f; // May alter gameSpeed to speed up the test execution process
+    private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
@@ -31,7 +31,7 @@ public class InteractoBot : MonoBehaviour
     private float interactionDistance = 1.5f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
     private float controllerMovementThreshold = 0.1f; // The distance of controller movement to continue interaction
-    private enum ControllerManipulationState // Controller manipulation state
+    private enum ControllerState // Controller manipulation state
     {
         None,
         LeftController,
@@ -39,7 +39,7 @@ public class InteractoBot : MonoBehaviour
         Both,
         HMD
     }
-    private ControllerManipulationState currentManipulationState = ControllerManipulationState.None; // Default state
+    private ControllerState currentControllerState = ControllerState.None; // Default state
     // Queue for processing movement commands one at a time
     private Queue<KeyCommand> keyCommandQueue = new Queue<KeyCommand>();
     private bool isProcessingKeyCommands = false;
@@ -106,7 +106,7 @@ public class InteractoBot : MonoBehaviour
         if (closestInteractable != null)
         {
             GameObject closestObject = closestInteractable.GetObject();
-            Debug.Log("Closest Object: " + closestObject.name);
+            // Debug.Log("Closest Object: " + closestObject.name);
             Vector3 currentPos = transform.position;
             Vector3 targetPos = closestObject.transform.position;
             // Rotation
@@ -121,6 +121,7 @@ public class InteractoBot : MonoBehaviour
                 return; // Don't proceed with controller actions until angle difference is small enough
             }
             // Player Movement
+            // TODO: maybe need to add the movement in y axis, OR ignore the distance in y axis
             float distanceToTarget = Vector3.Distance(currentPos, targetPos);
             if (distanceToTarget > interactionDistance)
             {
@@ -143,7 +144,7 @@ public class InteractoBot : MonoBehaviour
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
                     // Set to the right controller manipulation state
-                    EnsureControllerManipulationState(ControllerManipulationState.RightController);
+                    SwitchControllerState(ControllerState.RightController);
                     // Move towards the target
                     MoveControllerInDirection(direction);
                 }
@@ -158,7 +159,6 @@ public class InteractoBot : MonoBehaviour
                     {
                         ControllerTriggerAction();
                     }
-
                     // Wait for grip success confirmation
                     // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
                     // {
@@ -186,31 +186,29 @@ public class InteractoBot : MonoBehaviour
     }
 
     // Ensure we're in the desired controller manipulation state
-    void EnsureControllerManipulationState(ControllerManipulationState targetState)
+    void SwitchControllerState(ControllerState targetState)
     {
-        if (currentManipulationState == targetState)
+        if (currentControllerState == targetState)
             return;
-
         // Determine which key to press to get to the desired state
         Key key = Key.None;
-
         switch (targetState)
         {
-            case ControllerManipulationState.LeftController:
+            case ControllerState.LeftController:
                 key = Key.LeftBracket;
                 break;
-            case ControllerManipulationState.RightController:
+            case ControllerState.RightController:
                 key = Key.RightBracket;
                 break;
-            case ControllerManipulationState.Both:
-                // Press both keys simultaneously (handled specially)
-                EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, true));
-                EnqueueKeyCommand(new KeyCommand(Key.RightBracket, true));
-                EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, false));
-                EnqueueKeyCommand(new KeyCommand(Key.RightBracket, false));
-                currentManipulationState = targetState;
-                return;
-                // case ControllerManipulationState.HMD:
+                // case ControllerState.Both:
+                //     // Press both keys simultaneously (handled specially)
+                //     EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, true));
+                //     EnqueueKeyCommand(new KeyCommand(Key.RightBracket, true));
+                //     EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, false));
+                //     EnqueueKeyCommand(new KeyCommand(Key.RightBracket, false));
+                //     currentControllerState = targetState;
+                //     return;
+                // case ControllerState.HMD:
                 //     key = Key.Digit0;
                 //     break;
         }
@@ -220,7 +218,7 @@ public class InteractoBot : MonoBehaviour
             // Enqueue key press and release
             EnqueueKeyCommand(new KeyCommand(key, true));
             EnqueueKeyCommand(new KeyCommand(key, false));
-            currentManipulationState = targetState;
+            currentControllerState = targetState;
         }
     }
 
@@ -249,47 +247,28 @@ public class InteractoBot : MonoBehaviour
     {
         var keyboard = InputSystem.GetDevice<Keyboard>();
         if (keyboard == null) return;
-        if (command.press)
+        if (command.press) // Pressing the key
         {
-            // Pressing the key
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(command.key));
         }
-        else
+        else // Releasing the key
         {
-            // Releasing the key
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
         }
     }
 
-    // Move the controller in the given direction using input simulation
+    /// <summary>
+    /// Move the controller in the given direction using input simulation
+    /// </summary>
+    /// <param name="direction">Direction from the controller to the target</param>
     void MoveControllerInDirection(Vector3 direction)
     {
         Vector3 controllerForward = rightController.transform.forward;
         Vector3 controllerRight = rightController.transform.right;
         Vector3 controllerUp = rightController.transform.up;
-        // float zAxis = direction.z;  // Forward/Back (W/S)
-        // float xAxis = direction.x;  // Left/Right (A/D)
-        // float yAxis = direction.y;  // Up/Down (Q/E)
-
         float zAxis = Vector3.Dot(direction, controllerForward);
         float xAxis = Vector3.Dot(direction, controllerRight);
         float yAxis = Vector3.Dot(direction, controllerUp);
-
-        // if (xAxis != 0 || yAxis != 0 || zAxis != 0)
-        // {
-        //     // Normalise to ensure don't exceed 1.0 magnitude
-        //     // float magnitude = Mathf.Sqrt(xAxis * xAxis + yAxis * yAxis + zAxis * zAxis);
-        //     // xAxis /= magnitude;
-        //     // yAxis /= magnitude;
-        //     // zAxis /= magnitude;
-        //     // // Reduce magnitude to avoid extreme movements
-        //     // xAxis *= 0.5f;
-        //     // yAxis *= 0.5f;
-        //     // zAxis *= 0.5f;
-        //     // Send input events to simulate controller movement
-        //     EnqueueMovementKeys(xAxis, yAxis, zAxis);
-        //     Debug.Log($"Movement direction: X={xAxis}, Y={yAxis}, Z={zAxis}");
-        // }
         EnqueueMovementKeys(xAxis, yAxis, zAxis);
     }
 
@@ -304,15 +283,14 @@ public class InteractoBot : MonoBehaviour
         float absX = Mathf.Abs(x);
         float absY = Mathf.Abs(y);
         float absZ = Mathf.Abs(z);
-        // X-axis first policy
+        // Forward-first policy: move the controller towards the target first, then tweak the x and y axis
         if (absZ > threshold)
         {
             Key zKey = z > 0 ? Key.W : Key.S;
             EnqueueKeyCommand(new KeyCommand(zKey, true));
             EnqueueKeyCommand(new KeyCommand(zKey, false));
-            return; // Exit after handling X-axis
+            return;
         }
-        // Z-axis last
         if (absX > threshold)
         {
             Key xKey = x > 0 ? Key.D : Key.A;
@@ -320,16 +298,13 @@ public class InteractoBot : MonoBehaviour
             EnqueueKeyCommand(new KeyCommand(xKey, false));
             return;
         }
-        // Y-axis second
         if (absY > threshold)
         {
             Key yKey = y > 0 ? Key.E : Key.Q;
             EnqueueKeyCommand(new KeyCommand(yKey, true));
             EnqueueKeyCommand(new KeyCommand(yKey, false));
-            return; // Exit after handling Y-axis
+            return;
         }
-
-
     }
 
     /// <summary>
@@ -340,7 +315,7 @@ public class InteractoBot : MonoBehaviour
         Key resetKey = Key.R;
         EnqueueKeyCommand(new KeyCommand(resetKey, true));
         EnqueueKeyCommand(new KeyCommand(resetKey, false));
-        Debug.Log("Controller reset.");
+        // Debug.Log("Controller reset.");
     }
 
     void ControllerGripAction()
@@ -361,16 +336,19 @@ public class InteractoBot : MonoBehaviour
         // Debug.Log("Trigger action executed.");
     }
 
+    /// <summary>
+    /// Greedy policy: move to and interact with the closest interactable based on the current position
+    /// </summary>
+    /// <returns></returns>
     public InteractableObject GetCloestInteractable()
     {
         InteractableObject closest = null;
         float minDistance = Mathf.Infinity;
-        foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables) // test with the first interactable
+        foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables)
         {
             InteractableObject interactable = entry.Value;
             if (!interactable.GetVisited())
             {
-                // InteractableObject go = interactable.GetObject();
                 float distance = Vector3.Distance(transform.position, interactable.GetObject().transform.position);
                 if (distance < minDistance)
                 {
@@ -520,5 +498,28 @@ public class InteractoBot : MonoBehaviour
     private void OnPointerClick(PointerEventData eventData)
     {
         Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
+    }
+
+    /// <summary>
+    /// An example of getting the attributes of interactables for analysis/behaviour modelling, maybe useful, maybe not
+    /// </summary>
+    private void GetComponentAttributes()
+    {
+        GameObject blaster = GameObject.Find("Blaster").transform.parent.gameObject;
+        Debug.Log(blaster.GetComponent<XRGrabInteractable>());
+        var grabInteractable = blaster.GetComponent<XRGrabInteractable>();
+        if (grabInteractable != null)
+        {
+            // Get the activated event
+            var activatedEvent = grabInteractable.activated;
+            Debug.Log($"Blaster Activate Event: {activatedEvent}");
+            // You can also check if there are any listeners attached to this event
+            var hasListeners = activatedEvent.GetPersistentEventCount() > 0;
+            Debug.Log($"Blaster Activate Event has listeners: {hasListeners}");
+            var deactivatedEvent = grabInteractable.deactivated;
+            Debug.Log($"Blaster DeActivate Event: {deactivatedEvent}");
+            var dehasListeners = deactivatedEvent.GetPersistentEventCount() > 0;
+            Debug.Log($"Blaster DeActivate Event has listeners: {dehasListeners}");
+        }
     }
 }

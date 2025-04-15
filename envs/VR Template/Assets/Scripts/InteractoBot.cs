@@ -10,19 +10,16 @@ using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
-// public enum XRDeviceState { HMD, LeftController, RightController };
 
 public class InteractoBot : MonoBehaviour
 {
     // public SceneExplore explorer;
     public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
     public int interactableCount = 0;
-    public GameObject leftController;
     public GameObject rightController;
-    public GameObject cubeInteractable;
     // Input device references
-    private InputDevice simulatedLeftControllerDevice;
-    private InputDevice simulatedHMDDevice;
+    private InputDevice simulatedControllerDevice;
+    // private InputDevice simulatedHMDDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 1.0f;
@@ -81,17 +78,13 @@ public class InteractoBot : MonoBehaviour
         {
             if (device.name == "XRSimulatedController")
             {
-                simulatedLeftControllerDevice = device;
+                simulatedControllerDevice = device;
                 Debug.Log("Found simulated left controller: " + device.name);
+                break;
             }
             // TODO: could check what does "XRSimulatedController1" do
-            else if (device.name == "XRSimulatedHMD")
-            {
-                simulatedHMDDevice = device;
-                Debug.Log("Found simulated HMD: " + device.name);
-            }
         }
-        if (simulatedLeftControllerDevice == null)
+        if (simulatedControllerDevice == null)
         {
             Debug.LogWarning("Couldn't find simulated left controller device. Movement won't work.");
         }
@@ -109,12 +102,10 @@ public class InteractoBot : MonoBehaviour
         if (closestInteractable != null)
         {
             GameObject closestObject = closestInteractable.GetObject();
-            // Debug.Log("Closest Object: " + closestObject.name);
             Vector3 currentPos = transform.position;
             Vector3 targetPos = closestObject.transform.position;
-            // Rotation
+            // Rotation (only rotate y-axis)
             Vector3 targetDirection = (targetPos - currentPos).normalized;
-            // Rotate towards target (y-axis only)
             targetDirection.y = 0;
             float angle = Vector3.Angle(transform.forward, targetDirection);
             if (angle > interactionAngle)
@@ -123,8 +114,7 @@ public class InteractoBot : MonoBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
                 return; // Don't proceed with controller actions until angle difference is small enough
             }
-            // Player Movement
-            // Calculate distance ignoring Y axis
+            // Player Movement (calculate distance ignoring Y axis)
             Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
             Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
             float distanceToTarget = Vector3.Distance(flatCurrentPos, flatTargetPos);
@@ -162,7 +152,7 @@ public class InteractoBot : MonoBehaviour
                     }
                     else if (closestInteractable.GetObjectType() == "2d")
                     {
-                        // TODO: could use poke or near-far interaction to interact with UIs
+                        // TODO: for UIs, go to the position, and go backward to forward to trigger and reset the UI element
                         ControllerTriggerAction();
                     }
                     // Wait for grip success confirmation
@@ -482,11 +472,6 @@ public class InteractoBot : MonoBehaviour
         Debug.Log($"OnDeactivated: {interactable.transform.name}");
     }
 
-    private void OnKnobValueChanged(float value)
-    {
-        Debug.Log($"Knob value changed to: {value}");
-    }
-
     private void OnPointerEnter(PointerEventData eventData)
     {
         Debug.Log($"Pointer entered UI: {eventData.pointerEnter.name}");
@@ -500,6 +485,7 @@ public class InteractoBot : MonoBehaviour
     private void OnPointerClick(PointerEventData eventData)
     {
         Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
+        SetObjectInteracted(eventData.pointerEnter.name);
     }
 
     /// <summary>

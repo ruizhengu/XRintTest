@@ -16,6 +16,7 @@ public class InteractoBot : MonoBehaviour
 {
     // public SceneExplore explorer;
     public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
+    public int interactableCount = 0;
     public GameObject leftController;
     public GameObject rightController;
     public GameObject cubeInteractable;
@@ -66,6 +67,8 @@ public class InteractoBot : MonoBehaviour
         RegisterListener(); // Register listeners for interactables
         RegisterControlListeners(); // Register listeners for UI controls
         FindSimulatedDevices(); // Find the simulated devices
+        interactableCount = interactables.Count;
+        Debug.Log("Number of Interactables in Scene: " + interactableCount);
     }
 
     /// <summary>
@@ -121,13 +124,18 @@ public class InteractoBot : MonoBehaviour
                 return; // Don't proceed with controller actions until angle difference is small enough
             }
             // Player Movement
-            // TODO: maybe need to add the movement in y axis, OR ignore the distance in y axis
-            float distanceToTarget = Vector3.Distance(currentPos, targetPos);
+            // Calculate distance ignoring Y axis
+            Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
+            Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
+            float distanceToTarget = Vector3.Distance(flatCurrentPos, flatTargetPos);
             if (distanceToTarget > interactionDistance)
             {
-                // Vector3 direction = (targetPos - currentPos).normalized;
-                transform.position = Vector3.MoveTowards(currentPos, targetPos, moveSpeed * Time.deltaTime);
-                // Debug.DrawLine(currentPos, targetPos, Color.blue, Mathf.Infinity);
+                Vector3 newPosition = Vector3.MoveTowards(
+                    new Vector3(currentPos.x, currentPos.y, currentPos.z),
+                    new Vector3(targetPos.x, currentPos.y, targetPos.z),
+                    moveSpeed * Time.deltaTime
+                );
+                transform.position = newPosition;
                 return; // Don't proceed with controller actions until close enough
             }
             timeSinceLastUpdate += Time.deltaTime;
@@ -137,13 +145,10 @@ public class InteractoBot : MonoBehaviour
                 // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
                 Vector3 controllerTargetPos = closestObject.transform.position;
-                // Debug.Log("Controller Pos: " + controllerCurrentPos + ", Target Pos: " + controllerTargetPos);
-                // Vector3 direction = (controllerTargetPos - controllerCurrentPos).normalized;
                 Vector3 direction = controllerTargetPos - controllerCurrentPos;
-                // Debug.DrawLine(controllerCurrentPos, controllerCurrentPos + direction * 10, Color.red, Mathf.Infinity);
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
-                    // Set to the right controller manipulation state
+                    // Set to the right controller state
                     SwitchControllerState(ControllerState.RightController);
                     // Move towards the target
                     MoveControllerInDirection(direction);
@@ -157,6 +162,7 @@ public class InteractoBot : MonoBehaviour
                     }
                     else if (closestInteractable.GetObjectType() == "2d")
                     {
+                        // TODO: could use poke or near-far interaction to interact with UIs
                         ControllerTriggerAction();
                     }
                     // Wait for grip success confirmation
@@ -177,6 +183,12 @@ public class InteractoBot : MonoBehaviour
                     ResetControllerPosition();
                 }
             }
+        }
+        else
+        {
+            // TODO: add report (success rate)
+            Debug.Log("Test End");
+            Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactableCount);
         }
         // Process the command queue
         if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
@@ -263,6 +275,7 @@ public class InteractoBot : MonoBehaviour
     /// <param name="direction">Direction from the controller to the target</param>
     void MoveControllerInDirection(Vector3 direction)
     {
+        // Move in the controller's local direction, rather than in the world space's direction
         Vector3 controllerForward = rightController.transform.forward;
         Vector3 controllerRight = rightController.transform.right;
         Vector3 controllerUp = rightController.transform.up;
@@ -368,7 +381,6 @@ public class InteractoBot : MonoBehaviour
             var interactableType = entry.Value.GetObjectType();
             if (grabInteractable != null && interactableType == "3d")
             {
-                // Debug.Log(entry.Key);
                 grabInteractable.selectEntered.AddListener(OnSelectEntered);
                 grabInteractable.selectExited.AddListener(OnSelectExited);
             }
@@ -381,31 +393,6 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    void DequeueInteracted(string interactableName)
-    {
-        // Find the GameObject with the matching name
-        GameObject objectToRemove = null;
-        foreach (var entry in interactables)
-        {
-            if (entry.Key.name == interactableName)
-            {
-                objectToRemove = entry.Key;
-                break;
-            }
-        }
-
-        // If found, remove it from the dictionary
-        if (objectToRemove != null)
-        {
-            interactables.Remove(objectToRemove);
-            Debug.Log($"Removed interactable: {interactableName}");
-        }
-        else
-        {
-            Debug.LogWarning($"Interactable with name {interactableName} not found in dictionary");
-        }
-    }
-
     void SetObjectInteracted(string interactableName)
     {
         // InteractableObject objectToRemove = null;
@@ -414,28 +401,30 @@ public class InteractoBot : MonoBehaviour
             if (entry.Key.name == interactableName)
             {
                 entry.Value.SetInteracted(true);
-                Debug.Log($"Interactable: {interactableName} set to inteacted");
+                // Debug.Log($"Inteacted: {interactableName} set to {entry.Value.GetInteracted()}");
                 break;
             }
         }
-
-        // // If found, remove it from the dictionary
-        // if (objectToRemove != null)
-        // {
-        //     interactables.Remove(objectToRemove);
-        //     Debug.Log($"Removed interactable: {interactableName}");
-        // }
-        // else
-        // {
-        //     Debug.LogWarning($"Interactable with name {interactableName} not found in dictionary");
-        // }
     }
+
+    private int CountInteracted()
+    {
+        int count = 0;
+        foreach (var entry in interactables)
+        {
+            if (entry.Value.GetInteracted())
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
     // TODO: add listeners for controls
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
         var xrInteractable = args.interactableObject as UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable;
         Debug.Log("OnSelectEntered: " + xrInteractable.gameObject.name);
-        // TODO: could use a dequeue to remove interactables that have been successfully triggered
         SetObjectInteracted(xrInteractable.gameObject.name);
     }
 
@@ -464,16 +453,16 @@ public class InteractoBot : MonoBehaviour
         foreach (EventTrigger trigger in uiTriggers)
         {
             // Create entry for pointer enter
-            EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
-            pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
-            pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
-            trigger.triggers.Add(pointerEnterEntry);
+            // EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
+            // pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
+            // pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
+            // trigger.triggers.Add(pointerEnterEntry);
 
-            // Create entry for pointer exit
-            EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
-            pointerExitEntry.eventID = EventTriggerType.PointerExit;
-            pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
-            trigger.triggers.Add(pointerExitEntry);
+            // // Create entry for pointer exit
+            // EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
+            // pointerExitEntry.eventID = EventTriggerType.PointerExit;
+            // pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
+            // trigger.triggers.Add(pointerExitEntry);
 
             // Create entry for pointer click
             EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();

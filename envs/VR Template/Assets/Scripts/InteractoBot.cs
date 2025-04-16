@@ -26,7 +26,6 @@ public class InteractoBot : MonoBehaviour
     private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
-    private float interactionDistance = 0.5f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
     private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
     private enum ControllerState // Controller manipulation state
@@ -117,16 +116,9 @@ public class InteractoBot : MonoBehaviour
             // Player Movement (calculate distance ignoring Y axis)
             Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
             Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
-            Vector3 currentViewport = Camera.main.WorldToViewportPoint(flatCurrentPos);
-            Vector3 targetViewport = Camera.main.WorldToViewportPoint(flatTargetPos);
-            float distanceToTarget = Vector3.Distance(flatCurrentPos, flatTargetPos);
-            float viewportDistance = Vector2.Distance(
-                new Vector2(currentViewport.x, currentViewport.z),
-                new Vector2(targetViewport.x, targetViewport.z)
-            );
-            float dpiScale = Screen.dpi / 96f; // Normalize to 96DPI base
-            float adjustedInteractionDistance = interactionDistance * dpiScale;
-            if (viewportDistance > adjustedInteractionDistance)
+            float viewportDistance = Utils.GetUserViewportDistance(flatCurrentPos, flatTargetPos);
+            float interactionDistance = Utils.GetInteractionDistance();
+            if (viewportDistance > interactionDistance)
             {
                 Vector3 newPosition = Vector3.MoveTowards(
                     new Vector3(currentPos.x, currentPos.y, currentPos.z),
@@ -143,19 +135,13 @@ public class InteractoBot : MonoBehaviour
                 // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
                 Vector3 controllerTargetPos = closestObject.transform.position;
-                // Convert to viewport space for resolution independence
-                Vector3 controllerCurrentViewport = Camera.main.WorldToViewportPoint(controllerCurrentPos);
-                Vector3 controllerTargetViewport = Camera.main.WorldToViewportPoint(controllerTargetPos);
-                // Vector3 direction = controllerTargetPos - controllerCurrentPos;
-                Vector3 viewportDirection = controllerTargetViewport - controllerCurrentViewport;
-                Vector3 worldDirection = Camera.main.ViewportToWorldPoint(controllerCurrentViewport + viewportDirection.normalized * Time.deltaTime) - controllerCurrentPos;
+                Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
                     // Set to the right controller state
                     SwitchControllerState(ControllerState.RightController);
                     // Move towards the target
-                    // MoveControllerInDirection(direction);
-                    MoveControllerInDirection(worldDirection.normalized);
+                    MoveControllerInDirection(controllerWorldDirection.normalized);
                 }
                 else
                 {
@@ -228,7 +214,7 @@ public class InteractoBot : MonoBehaviour
                 //     key = Key.Digit0;
                 //     break;
         }
-        Debug.Log("Key: " + key);
+        // Debug.Log("Key: " + key);
         if (key != Key.None)
         {
             // Enqueue key press and release

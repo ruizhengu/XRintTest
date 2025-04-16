@@ -26,9 +26,9 @@ public class InteractoBot : MonoBehaviour
     private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
-    private float interactionDistance = 1.5f; // The distance for transiting from movement to interaction
+    private float interactionDistance = 0.5f; // The distance for transiting from movement to interaction
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.01f; // The distance of controller movement to continue interaction
+    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -117,8 +117,16 @@ public class InteractoBot : MonoBehaviour
             // Player Movement (calculate distance ignoring Y axis)
             Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
             Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
+            Vector3 currentViewport = Camera.main.WorldToViewportPoint(flatCurrentPos);
+            Vector3 targetViewport = Camera.main.WorldToViewportPoint(flatTargetPos);
             float distanceToTarget = Vector3.Distance(flatCurrentPos, flatTargetPos);
-            if (distanceToTarget > interactionDistance)
+            float viewportDistance = Vector2.Distance(
+                new Vector2(currentViewport.x, currentViewport.z),
+                new Vector2(targetViewport.x, targetViewport.z)
+            );
+            float dpiScale = Screen.dpi / 96f; // Normalize to 96DPI base
+            float adjustedInteractionDistance = interactionDistance * dpiScale;
+            if (viewportDistance > adjustedInteractionDistance)
             {
                 Vector3 newPosition = Vector3.MoveTowards(
                     new Vector3(currentPos.x, currentPos.y, currentPos.z),
@@ -135,13 +143,19 @@ public class InteractoBot : MonoBehaviour
                 // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
                 Vector3 controllerTargetPos = closestObject.transform.position;
-                Vector3 direction = controllerTargetPos - controllerCurrentPos;
+                // Convert to viewport space for resolution independence
+                Vector3 controllerCurrentViewport = Camera.main.WorldToViewportPoint(controllerCurrentPos);
+                Vector3 controllerTargetViewport = Camera.main.WorldToViewportPoint(controllerTargetPos);
+                // Vector3 direction = controllerTargetPos - controllerCurrentPos;
+                Vector3 viewportDirection = controllerTargetViewport - controllerCurrentViewport;
+                Vector3 worldDirection = Camera.main.ViewportToWorldPoint(controllerCurrentViewport + viewportDirection.normalized * Time.deltaTime) - controllerCurrentPos;
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
                     // Set to the right controller state
                     SwitchControllerState(ControllerState.RightController);
                     // Move towards the target
-                    MoveControllerInDirection(direction);
+                    // MoveControllerInDirection(direction);
+                    MoveControllerInDirection(worldDirection.normalized);
                 }
                 else
                 {
@@ -239,7 +253,7 @@ public class InteractoBot : MonoBehaviour
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
             // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(0.01f);
+            yield return new WaitForSeconds(0.005f);
         }
         isProcessingKeyCommands = false;
     }
@@ -282,7 +296,7 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        float threshold = controllerMovementThreshold / 2;
+        float threshold = controllerMovementThreshold * 0.8f;
         float absX = Mathf.Abs(x);
         float absY = Mathf.Abs(y);
         float absZ = Mathf.Abs(z);
@@ -322,7 +336,10 @@ public class InteractoBot : MonoBehaviour
 
     void ControllerGripAction()
     {
-        StartCoroutine(HoldGripKey());
+        // StartCoroutine(HoldGripKey());
+        Key gripKey = Key.G;
+        EnqueueKeyCommand(new KeyCommand(gripKey, true));
+        EnqueueKeyCommand(new KeyCommand(gripKey, false));
     }
 
     IEnumerator HoldGripKey()

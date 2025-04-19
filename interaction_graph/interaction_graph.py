@@ -72,12 +72,14 @@ class InteractionGraph:
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
+        self.predefined_interactions = self.get_predefined_interactions()
 
     def get_predefined_interactions(self):
         yml = Path('./interaction.yml')
         with open(yml) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
-            print(data)
+            # print(data)
+        return data
 
     @cache_result
     def get_assets(self, suffix="*.meta"):
@@ -258,48 +260,65 @@ class InteractionGraph:
             - file: path to cs file
             - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
         """
-        scripts = set()
+        predefined_interactables = self.predefined_interactions["interactables"]
+        predefined_interactors = self.predefined_interactions["interactors"]
+        predefined_activate = predefined_interactables["activate"]
+        predefined_select = predefined_interactables["select"]
+        predefind_socket = predefined_interactors["socket"]
+        interactions = set()
         processed_guids = set()  # record processed guids to avoid duplicated interactions
         for asset in self.get_assets("*.cs.*"):
-            file_name = asset.stem  # Get the file name without the suffix
+            file_name = asset.stem.replace(".cs", "")  # Get the file name without the suffix
             cs_file = asset.parent / asset.stem
             # Skip deprecated and affordance files
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
-            interaction_type = set()
+            interaction_type = None
             guid = self.get_file_guid(asset)
             if guid in processed_guids:
                 continue
-            if "XRKnob" in file_name:
-                interaction_type.add(InteractionType.SELECT)
-            elif "Interactable" in file_name:
-                if "XRBaseInteractable" in file_name:
-                    interaction_type.add(InteractionType.ACTIVATE)
-                elif "XRGrabInteractable" in file_name:
-                    interaction_type.add(InteractionType.SELECT)
-                elif self.is_custom_xr_interaction(cs_file):
-                    # logger.info(f"Unhandled interactable type: {file_name} ({cs_file})")
-                    interaction_type.add(InteractionType.CUSTOM)
-                else:
-                    continue
-            elif "Interactor" in file_name:
-                if "XRSocketInteractor" in file_name:
-                    interaction_type.add(InteractionType.SOCKET)
-                else:
-                    interaction_type.add(None)
-            # Check custom XR interactions
-            elif self.is_custom_xr_interaction(cs_file):
-                interaction_type.add(InteractionType.CUSTOM)
-            else:
-                # logger.info(f"Unidentifiable interaction type: {file_name} ({cs_file})")
-                continue
-            interaction = Interaction(name=file_name,
-                                      file=cs_file,
-                                      guid=guid,
-                                      interaction_type=interaction_type)
+            for activate in predefined_activate:
+                if file_name == activate:
+                    interaction_type = InteractionType.ACTIVATE
+            for select in predefined_select:
+                if file_name == select:
+                    interaction_type = InteractionType.SELECT
+            for socket in predefind_socket:
+                if file_name == socket:
+                    interaction_type = InteractionType.SOCKET
+            # if "XRKnob" in file_name:
+            #     interaction_type.add(InteractionType.SELECT)
+            # elif "Interactable" in file_name:
+            #     if "XRBaseInteractable" in file_name:
+            #         interaction_type.add(InteractionType.ACTIVATE)
+            #     elif "XRGrabInteractable" in file_name:
+            #         interaction_type.add(InteractionType.SELECT)
+            #     elif self.is_custom_xr_interaction(cs_file):
+            #         # logger.info(f"Unhandled interactable type: {file_name} ({cs_file})")
+            #         interaction_type.add(InteractionType.CUSTOM)
+            #     else:
+            #         continue
+            # elif "Interactor" in file_name:
+            #     if "XRSocketInteractor" in file_name:
+            #         interaction_type.add(InteractionType.SOCKET)
+            #     else:
+            #         interaction_type.add(None)
+            # # Check custom XR interactions
+            # elif self.is_custom_xr_interaction(cs_file):
+            #     interaction_type.add(InteractionType.CUSTOM)
+            # else:
+            #     # logger.info(f"Unidentifiable interaction type: {file_name} ({cs_file})")
+            #     continue
+            if interaction_type:
+                interaction = Interaction(name=file_name,
+                                        file=cs_file,
+                                        guid=guid,
+                                        interaction_type=interaction_type)
+                interactions.add(interaction)
             processed_guids.add(guid)
-            scripts.add(interaction)
-        return scripts
+        for interaction in interactions:
+            print(interaction.name, interaction.interaction_type)
+        return interactions
 
     @staticmethod
     def _has_precondition(prefab_doc):
@@ -400,7 +419,8 @@ class InteractionGraph:
                     continue
                 # Get the file id of the game object linked to the interactive script
                 obj_id = script.m_GameObject.get("fileID")
-                if "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
+                # if "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
+                if "Interactable" in interaction.name:
                     interactable = Interactable(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
@@ -542,10 +562,12 @@ class InteractionGraph:
 
 if __name__ == '__main__':
     # need to set the path of the scene, and also the path of where the prefabs are stored
-    project_root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/XRIExample")
+    project_root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/VR Template")
     scene_under_test = project_root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(project_root, scene_under_test)
-    graph.test()
+    # graph.test()
+    # for it in graph.get_scene_interactives()["interactables"]:
+    #     print(it.name, it.script)
     # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
-
+    graph.get_interaction_types()

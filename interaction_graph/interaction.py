@@ -6,6 +6,7 @@ class InteractionType(StrEnum):
     ACTIVATE = "activate"
     SOCKET = "socket"
     CUSTOM = "custom"
+    USER = "user"
 
 class InteractionRole(StrEnum):
     INTERACTABLE = "interactable"

@@ -163,32 +163,43 @@ class InteractionGraph:
         scene_prefab_instances = doc.filter(
             class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
         for instance in scene_prefab_instances:
+            # print(self._get_prefab_instance_name(instance.anchor))
             prefab_guid = instance.m_SourcePrefab.get("guid")
             if prefab_guid in asset_prefab_guids:
-                prefab_name = asset_prefab_guids[prefab_guid].stem.replace(
-                    ".prefab", "")
-                prefab_path = asset_prefab_guids[prefab_guid].parent / \
-                              asset_prefab_guids[prefab_guid].stem
-                interaction_layer = self._get_interaction_layer(
-                    instance=instance, )
-                # TODO: could set the prefab type according to the input doc path
-                prefab = Prefab(name=prefab_name,
-                                guid=prefab_guid,
-                                file=prefab_path,
-                                type=PrefabType.SCENE,
-                                interaction_layer=interaction_layer)
-                prefabs.add(prefab)
+                # prefab_name = asset_prefab_guids[prefab_guid].stem.replace(".prefab", "")
+                # TODO: if use there approach, cannot identify Blaster
+                if prefab_name := self._get_prefab_instance_name(instance.anchor):
+                    prefab_path = asset_prefab_guids[prefab_guid].parent / \
+                                asset_prefab_guids[prefab_guid].stem
+                    interaction_layer = self._get_interaction_layer(
+                        instance=instance, )
+                    # TODO: could set the prefab type according to the input doc path
+                    prefab = Prefab(name=prefab_name,
+                                    guid=prefab_guid,
+                                    file=prefab_path,
+                                    type=PrefabType.SCENE,
+                                    interaction_layer=interaction_layer)
+                    prefabs.add(prefab)
         return prefabs
 
     def _get_prefab_name(self, obj_id):
         """Helper to get prefab name from object ID"""
-        print(obj_id)
         if entry := self.get_entry_by_anchor(obj_id):
             if prefab_id := entry.m_PrefabInstance.get("fileID"):
                 if prefab_entry := self.get_entry_by_anchor(prefab_id):
                     for mod in prefab_entry.m_Modification["m_Modifications"]:
                         if mod.get("propertyPath") == "m_Name":
                             return mod.get("value")
+        return None
+    
+    def _get_prefab_instance_name(self, obj_id):
+        """Helper to get prefab name from object ID"""
+        if entry := self.get_entry_by_anchor(obj_id):
+            # if prefab_id := entry.m_PrefabInstance.get("fileID"):
+            #     if prefab_entry := self.get_entry_by_anchor(prefab_id):
+            for mod in entry.m_Modification["m_Modifications"]:
+                if mod.get("propertyPath") == "m_Name":
+                    return mod.get("value")
         return None
 
     def get_prefabs_source_from_scene(self):
@@ -224,36 +235,6 @@ class InteractionGraph:
             if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
                 return mod.get("value")
 
-    # @cache_result
-    # def is_custom_xr_interaction(self, cs_file_path):
-    #     """
-    #     Check if a C# script inherits from XRBaseInteractable or XRGrabInteractable
-    #     and located in the custom script path. Returns the matching classes if found.
-    #     """
-    #     # First check if file is in custom script path
-    #     if not str(cs_file_path).startswith(str(self.custom_script_path)):
-    #         return False
-    #     # target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
-    #     target_class_keyword = "Interactable"
-    #     try:
-    #         with open(cs_file_path, 'r', encoding='utf-8') as f:
-    #             content = f.read()
-    #             class_pattern = r'class\s+\w+\s*:\s*([\w,\s]+)'
-    #             match = re.search(class_pattern, content)
-    #             if match:
-    #                 inheritance = match.group(1)
-    #                 inherited_classes = {cls.strip()
-    #                                      for cls in inheritance.split(',')}
-    #                 # Return the matching classes if any exist
-    #                 # matching_classes = inherited_classes & target_classes
-    #                 for cls in inherited_classes:
-    #                     if target_class_keyword in cls:
-    #                         return True
-    #                 # return matching_classes if matching_classes else False
-    #     except Exception as e:
-    #         print(f"Error reading file {cs_file_path}: {e}")
-    #     return False
-
     @cache_result
     def get_interaction_types(self):
         """
@@ -270,6 +251,7 @@ class InteractionGraph:
         predefined_activate = predefined_interactables["activate"]
         predefined_select = predefined_interactables["select"]
         predefind_socket = predefined_interactors["socket"]
+        predefined_user = predefined_interactors["user"]
         interactions = set()
         processed_guids = set()  # record processed guids to avoid duplicated interactions
         for asset in self.get_assets("*.cs.*"):
@@ -294,7 +276,11 @@ class InteractionGraph:
             for socket in predefind_socket:
                 if file_name == socket:
                     interaction_type = InteractionType.SOCKET
-                    interaction_role = InteractionRole.INTERACTABLE
+                    interaction_role = InteractionRole.INTERACTOR
+            for user in predefined_user:
+                if file_name == user:
+                    interaction_type = InteractionType.USER
+                    interaction_role = InteractionRole.INTERACTOR
             # if "XRKnob" in file_name:
             #     interaction_type.add(InteractionType.SELECT)
             # elif "Interactable" in file_name:
@@ -341,30 +327,39 @@ class InteractionGraph:
                     return True
         return False
 
-    def _process_prefab_interactions(self, prefab):
+    def _process_prefab_interactions(self, prefab, original_name=None):
         """
         Helper method to process scripts in a prefab and categorize them
+        Args:
+            prefab: The prefab to process
+            original_name: The original name of the prefab from the scene file
         Returns: Dictionary with sets of interactables and interactors
         """
         prefab_doc = UnityDocument.load_yaml(prefab.file)
         results = {'interactables': set(), 'interactors': set()}
         script_guids = {script.m_Script.get("guid") for script in
                         prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
-        for interaction in self.get_interaction_types():
+        for interaction in self.interaction_types:
             if interaction.guid not in script_guids:
                 continue
-            if "Interactor" in interaction.name:
-                interactor = Interactor(name=prefab.name,
+            # Use original_name if provided, otherwise use prefab.name
+            name_to_use = original_name if original_name else prefab.name
+            if interaction.role == InteractionRole.INTERACTOR:
+                interactor = Interactor(name=name_to_use,
                                         script=interaction.file,
-                                        interaction_type=interaction.interaction_type,
+                                        interaction_type=interaction.type,
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
-            # elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
-            elif "Interactable" in interaction.name:
-                interaction_type = interaction.interaction_type
+            elif interaction.role == InteractionRole.INTERACTABLE:
+                interaction_type = interaction.type
+                # TODO: move precondition handling to a universal place
                 if self._has_precondition(prefab_doc):
-                    interaction_type = interaction_type.union({InteractionType.ACTIVATE})
-                interactable = Interactable(name=prefab.name,
+                    interactable = Interactable(name=name_to_use,
+                                            script=interaction.file,
+                                            interaction_type=InteractionType.ACTIVATE,
+                                            interaction_layer=prefab.interaction_layer)
+                    results["interactables"].add(interactable)
+                interactable = Interactable(name=name_to_use,
                                             script=interaction.file,
                                             interaction_type=interaction_type,
                                             interaction_layer=prefab.interaction_layer)
@@ -387,36 +382,40 @@ class InteractionGraph:
         Returns: Dictionary with sets of interactables and interactors
         """
 
-        def find_interactives_in_prefab(prefab, processed):
+        def find_interactives_in_prefab(prefab, processed, original_name=None):
             if prefab in processed:
                 return {'interactables': set(), 'interactors': set()}
             processed.add(prefab)
             results = {'interactables': set(), 'interactors': set()}
-            # Process current prefab's scripts
-            current_results = self._process_prefab_interactions(prefab)
-            results["interactables"].update(
-                current_results["interactables"])
+            
+            # Get the original name from the scene file if this is a root prefab
+            if original_name is None:
+                original_name = self._get_prefab_name(prefab.guid)
+            
+            # Process current prefab's scripts with the original name
+            current_results = self._process_prefab_interactions(prefab, original_name)
+            results["interactables"].update(current_results["interactables"])
             results["interactors"].update(current_results["interactors"])
             # Process nested prefabs
             for nested_prefab in self._get_nested_prefab(prefab):
-                nested_results = find_interactives_in_prefab(
-                    nested_prefab, processed)
-                results["interactables"].update(
-                    nested_results["interactables"])
-                results["interactors"].update(
-                    nested_results["interactors"])
+                nested_results = find_interactives_in_prefab(nested_prefab, processed, original_name)
+                results["interactables"].update(nested_results["interactables"])
+                results["interactors"].update(nested_results["interactors"])
             return results
 
-        final_results = {'interactables': set(), 'interactors': set()}
         processed_prefabs = set()
         # Process all prefabs from the scene
         for prefab_source in self.get_prefabs_source_from_scene():
-            results_tmp = find_interactives_in_prefab(prefab_source, processed_prefabs)
-            final_results["interactables"].update(results_tmp["interactables"])
-            final_results["interactors"].update(results_tmp["interactors"])
-        return final_results
+            original_name = self._get_prefab_instance_name(prefab_source.guid)
+            print(original_name)
+            results_tmp = find_interactives_in_prefab(prefab_source, processed_prefabs, original_name)
+            self.interactables.update(results_tmp["interactables"])
+            self.interactors.update(results_tmp["interactors"])
+        for interactable in self.interactables:
+            print(interactable.name)
+        return {'interactables': self.interactables, 'interactors': self.interactors}
 
-    def get_scene_interactives(self):
+    def get_scene_interactions(self):
         """
         Get the interactables and interactors in the scene under test
         Returns: Two sets of interactable and interactor objects
@@ -435,16 +434,13 @@ class InteractionGraph:
                         script=interaction.file,
                         interaction_type=interaction.type,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
-                    # results["interactables"].add(interactable)
                     self.interactables.add(interactable)
-                # elif "Interactor" in interaction.name:
                 elif interaction.role == InteractionRole.INTERACTOR:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
                         interaction_type=interaction.type,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
-                    # results["interactors"].add(interactor)
                     self.interactors.add(interactor)
         # return results
 
@@ -507,7 +503,7 @@ class InteractionGraph:
         Returns: Dictionary with two lists - 'interactables' and 'interactors'
         """
         prefab_results = self.get_interactive_prefabs()
-        scene_results = self.get_scene_interactives()
+        scene_results = self.get_scene_interactions()
         uis = self.get_ui_objects()
         interactors = prefab_results['interactors'].union(scene_results['interactors'])
         interactables = prefab_results['interactables'].union(scene_results['interactables']).union(uis)
@@ -527,27 +523,25 @@ class InteractionGraph:
             InteractionType.SELECT: 'lightcoral',
             InteractionType.ACTIVATE: 'lightsteelblue',
             InteractionType.SOCKET: 'khaki',
-            InteractionType.CUSTOM: 'lime',
+            # InteractionType.CUSTOM: 'lime',
         }
         # Add nodes and edges
-        interactors, interactables = self.get_interactors_interactables()
         interactor_user = None
         interactor_socket = set()
-        for interactor in interactors:
+        for interactor in self.interactors:
             if InteractionType.SOCKET in interactor.interaction_type:
                 G.add_node(interactor.name)
                 interactor_socket.add(interactor)
-        for interactor in interactors:
+        for interactor in self.interactors:
             if InteractionType.SOCKET not in interactor.interaction_type:
                 G.add_node(interactor.name)
                 interactor_user = interactor
                 break
         edges_by_type = {}
-        for interactable in interactables:
+        for interactable in self.interactables:
             G.add_node(interactable.name)
-            for interaction in interactable.interaction_type:
-                G.add_edge(interactor_user.name, interactable.name, key=interaction)
-                edges_by_type.setdefault(interaction, []).append((interactor_user.name, interactable.name))
+            G.add_edge(interactor_user.name, interactable.name, interactable.interaction_type)
+            edges_by_type.setdefault(interactable.interaction_type, []).append((interactor_user.name, interactable.name))
             for socket in interactor_socket:
                 if socket.interaction_layer == interactable.interaction_layer:
                     G.add_edge(interactor_user.name, interactable.name)
@@ -569,10 +563,15 @@ class InteractionGraph:
 
     def test(self):
         # self.get_interactors_interactables()
-        # self.build_graph()
-        self.get_scene_interactives()
-        for interactable in self.interactables:
-            print(interactable.name, interactable.script)
+        self.get_interactive_prefabs()
+        self.get_scene_interactions()
+        print(self.interactables)
+        print(self.interactors)
+        self.build_graph()
+        # self.get_scene_interactives()
+        # for interactable in self.interactables:
+        #     print(interactable.name, interactable.script)
+        # self.get_interactive_prefabs()
 
 
 if __name__ == '__main__':

@@ -6,3 +6,6 @@ interactables:
 interactors:
   socket:
     - XRSocketInteractor
+  user:
+    - XRPokeInteractor
+    - NearFarInteractor

@@ -7,13 +7,17 @@ class InteractionType(StrEnum):
     SOCKET = "socket"
     CUSTOM = "custom"
 
+class InteractionRole(StrEnum):
+    INTERACTABLE = "interactable"
+    INTERACTOR = "interactor"
 
 class Interaction:
-    def __init__(self, name, file, guid, interaction_type):
+    def __init__(self, name, file, guid, role, type):
         self.name = name
         self.file = file
         self.guid = guid
-        self.interaction_type = interaction_type
+        self.role = role # role of the interaction: interactable or interactor
+        self.type = type # type of the interaction: activate, socket, etc.
 
     def __str__(self):
-        return f"{self.name} ({self.interaction_type})"
+        return f"{self.name} ({self.type})"

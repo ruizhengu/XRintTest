@@ -12,7 +12,7 @@ import itertools as it
 from interactable import Interactable
 from interactor import Interactor
 from prefab import Prefab, PrefabType
-from interaction import Interaction, InteractionType
+from interaction import Interaction, InteractionType, InteractionRole
 from loguru import logger
 
 
@@ -71,8 +71,11 @@ class InteractionGraph:
         ]
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
-        self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
-        self.predefined_interactions = self.get_predefined_interactions()
+        # self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
+        # self.predefined_interactions = self.get_predefined_interactions()
+        self.interaction_types = self.get_interaction_types()
+        self.interactables = set()
+        self.interactors = set()
 
     def get_predefined_interactions(self):
         yml = Path('./interaction.yml')
@@ -179,6 +182,7 @@ class InteractionGraph:
 
     def _get_prefab_name(self, obj_id):
         """Helper to get prefab name from object ID"""
+        print(obj_id)
         if entry := self.get_entry_by_anchor(obj_id):
             if prefab_id := entry.m_PrefabInstance.get("fileID"):
                 if prefab_entry := self.get_entry_by_anchor(prefab_id):
@@ -220,35 +224,35 @@ class InteractionGraph:
             if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
                 return mod.get("value")
 
-    @cache_result
-    def is_custom_xr_interaction(self, cs_file_path):
-        """
-        Check if a C# script inherits from XRBaseInteractable or XRGrabInteractable
-        and located in the custom script path. Returns the matching classes if found.
-        """
-        # First check if file is in custom script path
-        if not str(cs_file_path).startswith(str(self.custom_script_path)):
-            return False
-        # target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
-        target_class_keyword = "Interactable"
-        try:
-            with open(cs_file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                class_pattern = r'class\s+\w+\s*:\s*([\w,\s]+)'
-                match = re.search(class_pattern, content)
-                if match:
-                    inheritance = match.group(1)
-                    inherited_classes = {cls.strip()
-                                         for cls in inheritance.split(',')}
-                    # Return the matching classes if any exist
-                    # matching_classes = inherited_classes & target_classes
-                    for cls in inherited_classes:
-                        if target_class_keyword in cls:
-                            return True
-                    # return matching_classes if matching_classes else False
-        except Exception as e:
-            print(f"Error reading file {cs_file_path}: {e}")
-        return False
+    # @cache_result
+    # def is_custom_xr_interaction(self, cs_file_path):
+    #     """
+    #     Check if a C# script inherits from XRBaseInteractable or XRGrabInteractable
+    #     and located in the custom script path. Returns the matching classes if found.
+    #     """
+    #     # First check if file is in custom script path
+    #     if not str(cs_file_path).startswith(str(self.custom_script_path)):
+    #         return False
+    #     # target_classes = {"XRBaseInteractable", "XRGrabInteractable"}
+    #     target_class_keyword = "Interactable"
+    #     try:
+    #         with open(cs_file_path, 'r', encoding='utf-8') as f:
+    #             content = f.read()
+    #             class_pattern = r'class\s+\w+\s*:\s*([\w,\s]+)'
+    #             match = re.search(class_pattern, content)
+    #             if match:
+    #                 inheritance = match.group(1)
+    #                 inherited_classes = {cls.strip()
+    #                                      for cls in inheritance.split(',')}
+    #                 # Return the matching classes if any exist
+    #                 # matching_classes = inherited_classes & target_classes
+    #                 for cls in inherited_classes:
+    #                     if target_class_keyword in cls:
+    #                         return True
+    #                 # return matching_classes if matching_classes else False
+    #     except Exception as e:
+    #         print(f"Error reading file {cs_file_path}: {e}")
+    #     return False
 
     @cache_result
     def get_interaction_types(self):
@@ -260,8 +264,9 @@ class InteractionGraph:
             - file: path to cs file
             - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
         """
-        predefined_interactables = self.predefined_interactions["interactables"]
-        predefined_interactors = self.predefined_interactions["interactors"]
+        predefined_interactions = self.get_predefined_interactions()
+        predefined_interactables = predefined_interactions["interactables"]
+        predefined_interactors = predefined_interactions["interactors"]
         predefined_activate = predefined_interactables["activate"]
         predefined_select = predefined_interactables["select"]
         predefind_socket = predefined_interactors["socket"]
@@ -274,18 +279,22 @@ class InteractionGraph:
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
             interaction_type = None
+            interaction_role = None
             guid = self.get_file_guid(asset)
             if guid in processed_guids:
                 continue
             for activate in predefined_activate:
                 if file_name == activate:
                     interaction_type = InteractionType.ACTIVATE
+                    interaction_role = InteractionRole.INTERACTABLE
             for select in predefined_select:
                 if file_name == select:
                     interaction_type = InteractionType.SELECT
+                    interaction_role = InteractionRole.INTERACTABLE
             for socket in predefind_socket:
                 if file_name == socket:
                     interaction_type = InteractionType.SOCKET
+                    interaction_role = InteractionRole.INTERACTABLE
             # if "XRKnob" in file_name:
             #     interaction_type.add(InteractionType.SELECT)
             # elif "Interactable" in file_name:
@@ -313,11 +322,12 @@ class InteractionGraph:
                 interaction = Interaction(name=file_name,
                                         file=cs_file,
                                         guid=guid,
-                                        interaction_type=interaction_type)
+                                        role=interaction_role,
+                                        type=interaction_type)
                 interactions.add(interaction)
             processed_guids.add(guid)
-        for interaction in interactions:
-            print(interaction.name, interaction.interaction_type)
+        # for interaction in interactions:
+        #     print(interaction.name, interaction.interaction_type, interaction.guid)
         return interactions
 
     @staticmethod
@@ -349,7 +359,8 @@ class InteractionGraph:
                                         interaction_type=interaction.interaction_type,
                                         interaction_layer=prefab.interaction_layer)
                 results["interactors"].add(interactor)
-            elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
+            # elif "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
+            elif "Interactable" in interaction.name:
                 interaction_type = interaction.interaction_type
                 if self._has_precondition(prefab_doc):
                     interaction_type = interaction_type.union({InteractionType.ACTIVATE})
@@ -410,31 +421,32 @@ class InteractionGraph:
         Get the interactables and interactors in the scene under test
         Returns: Two sets of interactable and interactor objects
         """
-        results = {'interactables': set(), 'interactors': set()}
         scene_scripts = self.scene_doc.filter(class_names=(
             "MonoBehaviour",), attributes=("m_Script",))
         for script in scene_scripts:
-            for interaction in self.get_interaction_types():
+            for interaction in self.interaction_types:
                 if interaction.guid != script.m_Script.get("guid"):
                     continue
                 # Get the file id of the game object linked to the interactive script
                 obj_id = script.m_GameObject.get("fileID")
-                # if "Interactable" in interaction.name or self.is_custom_xr_interaction(interaction.file):
-                if "Interactable" in interaction.name:
+                if interaction.role == InteractionRole.INTERACTABLE:
                     interactable = Interactable(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_type=interaction.interaction_type,
+                        interaction_type=interaction.type,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
-                    results["interactables"].add(interactable)
-                elif "Interactor" in interaction.name:
+                    # results["interactables"].add(interactable)
+                    self.interactables.add(interactable)
+                # elif "Interactor" in interaction.name:
+                elif interaction.role == InteractionRole.INTERACTOR:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_type=interaction.interaction_type,
+                        interaction_type=interaction.type,
                         interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
-                    results["interactors"].add(interactor)
-        return results
+                    # results["interactors"].add(interactor)
+                    self.interactors.add(interactor)
+        # return results
 
     def get_ui_objects(self):
         """
@@ -557,7 +569,10 @@ class InteractionGraph:
 
     def test(self):
         # self.get_interactors_interactables()
-        self.build_graph()
+        # self.build_graph()
+        self.get_scene_interactives()
+        for interactable in self.interactables:
+            print(interactable.name, interactable.script)
 
 
 if __name__ == '__main__':
@@ -566,8 +581,5 @@ if __name__ == '__main__':
     scene_under_test = project_root / "Assets/Scenes/SampleScene.unity"
 
     graph = InteractionGraph(project_root, scene_under_test)
-    # graph.test()
-    # for it in graph.get_scene_interactives()["interactables"]:
-    #     print(it.name, it.script)
+    graph.test()
     # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
-    graph.get_interaction_types()

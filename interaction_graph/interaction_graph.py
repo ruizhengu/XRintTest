@@ -331,39 +331,88 @@ class InteractionGraph:
         return self._get_prefab_objects(prefab_doc)
 
     @cache_result
+    def _has_valid_interactions(self, prefab, processed=None):
+        """
+        Check if a prefab or any of its children (at any depth) have valid interactions
+        Args:
+            prefab: The prefab to check
+            processed: Set of processed prefabs to avoid cycles
+        Returns:
+            bool: True if prefab or any of its children have valid interactions
+        """
+        if processed is None:
+            processed = set()
+        
+        if prefab in processed:
+            return False
+        processed.add(prefab)
+        
+        # Check current prefab for interactions
+        current_results = self._process_prefab_interactions(prefab)
+        if current_results:  # If current prefab has interactions
+            return True
+            
+        # Recursively check children
+        for child_prefab in self._get_nested_prefab(prefab):
+            if self._has_valid_interactions(child_prefab, processed):
+                return True
+                
+        return False
+
     def get_interactive_prefabs(self):
         """
-        Get prefab instances from the scene that are either Interactable or Interactor
+        Get prefab instances from the scene that have valid interactions either directly
+        or through their children (at any depth).
         Returns: Dictionary with sets of interactables and interactors
         """
-
-        def find_interactives_in_prefab(prefab, processed):
+        def process_prefab_hierarchy(prefab, processed):
+            """
+            Process a prefab and its entire hierarchy to find interactions
+            Args:
+                prefab: The root prefab to process
+                processed: Set of processed prefabs to avoid cycles
+            Returns:
+                dict: Dictionary containing sets of interactables and interactors
+            """
             if prefab in processed:
-                return {'interactables': set(), 'interactors': set()}
+                # return {'interactables': set(), 'interactors': set()}
+                return set()
             processed.add(prefab)
-            results = {'interactables': set(), 'interactors': set()}
+            results = set()
+            # Process current prefab's interactions
             current_results = self._process_prefab_interactions(prefab)
             for result in current_results:
                 if isinstance(result, Interactable):
-                    results["interactables"].add(result)
+                    # results["interactables"].add(result)
+                    results.add(result)
                 elif isinstance(result, Interactor):
-                    results["interactors"].add(result)
+                    # results["interactors"].add(result)
+                    results.add(result)
+            
             # Process nested prefabs
-            for nested_prefab in self._get_nested_prefab(prefab):
-                nested_results = find_interactives_in_prefab(nested_prefab, processed)
-                results["interactables"].update(nested_results["interactables"])
-                results["interactors"].update(nested_results["interactors"])
+            for child_prefab in self._get_nested_prefab(prefab):
+                prefab.add_child(child_prefab)
+                child_results = process_prefab_hierarchy(child_prefab, processed)
+                for child_result in child_results:
+                    if isinstance(child_result, Interactable):
+                        # results["interactables"].add(result)
+                        results.add(child_result)
+                    elif isinstance(child_result, Interactor):
+                        # results["interactors"].add(result)
+                        results.add(child_result)
             return results
 
         processed_prefabs = set()
         # Process all prefabs from the scene
         for prefab_source in self.get_prefabs_source_from_scene():
-            print(prefab_source.name)
-            results_tmp = find_interactives_in_prefab(prefab_source, processed_prefabs)
-            self.interactables.update(results_tmp["interactables"])
-            self.interactors.update(results_tmp["interactors"])
-        # for interactable in self.interactables:
-        #     print(interactable.name)
+            # Only process prefabs that have valid interactions in their hierarchy
+            if self._has_valid_interactions(prefab_source):
+                results_tmp = process_prefab_hierarchy(prefab_source, processed_prefabs)
+                for tmp_result in results_tmp:
+                    if isinstance(tmp_result, Interactable):
+                        self.interactables.add(tmp_result)
+                    elif isinstance(tmp_result, Interactor):
+                        self.interactors.add(tmp_result)
 
     def get_scene_interactions(self):
         """

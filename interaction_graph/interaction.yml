@@ -3,6 +3,8 @@ interactables:
     - XRBaseInteractable
   select:
     - XRGrabInteractable
+  custom:
+    - XRKnob
 interactors:
   socket:
     - XRSocketInteractor

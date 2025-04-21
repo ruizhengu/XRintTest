@@ -12,8 +12,9 @@ import itertools as it
 from interactable import Interactable
 from interactor import Interactor
 from prefab import Prefab, PrefabType
-from interaction import Interaction, InteractionType, InteractionRole
+from interaction import Interaction, InteractionEvent, InteractionRole
 from loguru import logger
+from enum import StrEnum
 import utils
 
 
@@ -62,6 +63,9 @@ def cache_result(func):
 
     return wrapper
 
+class InteractableType(StrEnum):
+    THREE_D = "3d"
+    TWO_D = "2d"
 
 class InteractionGraph:
     def __init__(self, root, sut):
@@ -74,7 +78,8 @@ class InteractionGraph:
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         # self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
         # self.predefined_interactions = self.get_predefined_interactions()
-        self.interaction_types = self.get_interaction_types()
+        self.interaction_events_3d = self.get_interaction_types_3d()
+        self.interaction_events_ui = self.get_interaction_types_ui()
         self.interactables = set()
         self.interactors = set()
 
@@ -175,7 +180,7 @@ class InteractionGraph:
                     prefab_name = asset_prefab_guids[prefab_guid].stem.replace(".prefab", "")
                 prefab_path = asset_prefab_guids[prefab_guid].parent / \
                             asset_prefab_guids[prefab_guid].stem
-                interaction_layer = self._get_interaction_layer(
+                interaction_layer = self.get_interaction_layer(
                     instance=instance, )
                 # TODO: could set the prefab type according to the input doc path
                 prefab = Prefab(name=prefab_name,
@@ -207,19 +212,19 @@ class InteractionGraph:
                     return mod.get("value")
         return None
 
-    def get_prefabs_source_from_scene(self):
+    def get_scene_prefabs(self):
         """
         Get the prefabs in the scene under test
         """
         return self._get_prefab_objects(self.scene_doc)
 
-    def _get_interaction_layer(self, instance=None, prefab_source=None, obj_id=None):
+    def get_interaction_layer(self, instance=None, prefab_source=None, obj_id=None):
         """
         Get the interaction layer of the prefab instance
         """
         # If there are modifications related to the interaction layer is done within the scene
         if instance:
-            return self._extract_interaction_layer_from_modification(instance.m_Modification["m_Modifications"])
+            return utils.get_interaction_layer_modification(instance.m_Modification["m_Modifications"])
         elif prefab_source:
             # TODO: If there are no modifications related to the interaction layer, check the prefab source
             pass
@@ -227,28 +232,17 @@ class InteractionGraph:
             if entry := self.get_entry_by_anchor(obj_id):
                 if prefab_id := entry.m_PrefabInstance.get("fileID"):
                     if prefab_entry := self.get_entry_by_anchor(prefab_id):
-                        return self._extract_interaction_layer_from_modification(
+                        return utils.get_interaction_layer_modification(
                             prefab_entry.m_Modification["m_Modifications"])
         return -1  # Assume the default interaction layer is -1
 
-    @staticmethod
-    def _extract_interaction_layer_from_modification(modifications):
+    def get_interaction_types(self, is_ui=False):
         """
-        Extract interaction layer value from modifications
-        """
-        for mod in modifications:
-            if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
-                return mod.get("value")
-
-    @cache_result
-    def get_interaction_types(self):
-        """
-        Get the scripts that have "Interactable" or "Interactor" in the name
-        Based on .meta files and record the guid of the script
-        Returns dictionary with:
-            - guid: file guid
-            - file: path to cs file
-            - type: interaction type {activate, select, activate* (custom activate), select* (custom select)}
+        Get interaction types from scripts based on predefined patterns.
+        Args:
+            is_ui: Whether to get UI interactions (True) or 3D interactions (False)
+        Returns:
+            Set of Interaction objects
         """
         predefined_interactions = self.get_predefined_interactions()
         interactions = set()
@@ -259,32 +253,36 @@ class InteractionGraph:
             # Skip deprecated and affordance files
             if "deprecated" in file_name or "Affordance" in file_name:
                 continue
-            interaction_type = None
-            interaction_role = None
             guid = self.get_file_guid(asset)
             if guid in processed_guids:
                 continue
-            interaction_type, interaction_role = utils.get_interaction_type_role(predefined_interactions, file_name)
-            if interaction_type:
-                interaction = Interaction(name=file_name,
-                                        file=cs_file,
-                                        guid=guid,
-                                        role=interaction_role,
-                                        type=interaction_type)
-                interactions.add(interaction)
+            if is_ui:
+                interaction_event = utils.get_interaction_ui_event(predefined_interactions, file_name)
+                if interaction_event:
+                    interaction = Interaction(name=file_name,
+                                           file=cs_file,
+                                           guid=guid,
+                                           event=interaction_event,
+                                           role=InteractionRole.INTERACTABLE)
+                    interactions.add(interaction)
+            else:
+                interaction_event, interaction_role = utils.get_interaction_event_role(predefined_interactions, file_name)
+                if interaction_event:
+                    interaction = Interaction(name=file_name,
+                                           file=cs_file,
+                                           guid=guid,
+                                           event=interaction_event,
+                                           role=interaction_role)
+                    interactions.add(interaction)
+
             processed_guids.add(guid)
         return interactions
 
-    @staticmethod
-    def _has_precondition(prefab_doc):
-        """
-        Check if select interactions also supported activate interactions (m_Activated in MonoBehaviour)
-        """
-        for entry in prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Activated",)):
-            if calls := entry.m_Activated.get("m_PersistentCalls", {}).get("m_Calls"):
-                if calls:  # If m_Calls is not empty
-                    return True
-        return False
+    def get_interaction_types_ui(self):
+        return self.get_interaction_types(is_ui=True)
+
+    def get_interaction_types_3d(self):
+        return self.get_interaction_types(is_ui=False)
 
     def _process_prefab_interactions(self, prefab):
         """
@@ -296,28 +294,29 @@ class InteractionGraph:
         """
         prefab_doc = UnityDocument.load_yaml(prefab.file)
         results = set()
-
         # Get all script GUIDs from the prefab
         script_guids = {script.m_Script.get("guid") for script in
                        prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
         # Find the first matching interaction type
-        for interaction in self.interaction_types:
+        for interaction in self.interaction_events_3d:
             if interaction.guid not in script_guids:
                 continue
             # Base component properties
             component_props = {
                 "name": prefab.name,
                 "script": interaction.file,
-                "interaction_type": interaction.type,
-                "interaction_layer": prefab.interaction_layer
+                # "type": InteractableType.THREE_D,
+                "event": interaction.event,
+                "layer": prefab.interaction_layer
             }
             if interaction.role == InteractionRole.INTERACTOR:
                 results.add(Interactor(**component_props))
             elif interaction.role == InteractionRole.INTERACTABLE:
+                component_props["type"] = InteractableType.THREE_D
                 results.add(Interactable(**component_props))                
                 # Add activate interaction if precondition exists
-                if self._has_precondition(prefab_doc):
-                    component_props["interaction_type"] = InteractionType.ACTIVATE
+                if utils.has_precondition(prefab_doc):
+                    component_props["event"] = InteractionEvent.ACTIVATE
                     results.add(Interactable(**component_props))
             break  # Only process first matching interaction
         return results
@@ -342,22 +341,37 @@ class InteractionGraph:
         """
         if processed is None:
             processed = set()
-        
         if prefab in processed:
             return False
         processed.add(prefab)
-        
         # Check current prefab for interactions
         current_results = self._process_prefab_interactions(prefab)
         if current_results:  # If current prefab has interactions
             return True
-            
         # Recursively check children
         for child_prefab in self._get_nested_prefab(prefab):
             if self._has_valid_interactions(child_prefab, processed):
                 return True
-                
         return False
+
+    def _build_prefab_hierarchy(self, prefab, processed=None):
+        """
+        Build the prefab hierarchy by adding children to each prefab
+        Args:
+            prefab: The root prefab to process
+            processed: Set of processed prefabs to avoid cycles
+        Returns:
+            None
+        """
+        if processed is None:
+            processed = set()
+        if prefab in processed:
+            return
+        processed.add(prefab)
+        # Add all children to the prefab hierarchy
+        for child_prefab in self._get_nested_prefab(prefab):
+            prefab.add_child(child_prefab)
+            self._build_prefab_hierarchy(child_prefab, processed)
 
     def get_interactive_prefabs(self):
         """
@@ -372,40 +386,27 @@ class InteractionGraph:
                 prefab: The root prefab to process
                 processed: Set of processed prefabs to avoid cycles
             Returns:
-                dict: Dictionary containing sets of interactables and interactors
+                set: Set of Interactable and Interactor objects found in the hierarchy
             """
             if prefab in processed:
-                # return {'interactables': set(), 'interactors': set()}
                 return set()
             processed.add(prefab)
             results = set()
             # Process current prefab's interactions
             current_results = self._process_prefab_interactions(prefab)
             for result in current_results:
-                if isinstance(result, Interactable):
-                    # results["interactables"].add(result)
-                    results.add(result)
-                elif isinstance(result, Interactor):
-                    # results["interactors"].add(result)
-                    results.add(result)
-            
+                results.add(result)
             # Process nested prefabs
-            for child_prefab in self._get_nested_prefab(prefab):
-                prefab.add_child(child_prefab)
+            for child_prefab in prefab.children:
                 child_results = process_prefab_hierarchy(child_prefab, processed)
-                for child_result in child_results:
-                    if isinstance(child_result, Interactable):
-                        # results["interactables"].add(result)
-                        results.add(child_result)
-                    elif isinstance(child_result, Interactor):
-                        # results["interactors"].add(result)
-                        results.add(child_result)
+                results.update(child_results)
             return results
-
         processed_prefabs = set()
-        # Process all prefabs from the scene
-        for prefab_source in self.get_prefabs_source_from_scene():
-            # Only process prefabs that have valid interactions in their hierarchy
+        # First build the prefab hierarchy for all prefabs
+        for prefab_source in self.get_scene_prefabs():
+            self._build_prefab_hierarchy(prefab_source)
+        # Then process only prefabs that have valid interactions
+        for prefab_source in self.get_scene_prefabs():
             if self._has_valid_interactions(prefab_source):
                 results_tmp = process_prefab_hierarchy(prefab_source, processed_prefabs)
                 for tmp_result in results_tmp:
@@ -413,6 +414,8 @@ class InteractionGraph:
                         self.interactables.add(tmp_result)
                     elif isinstance(tmp_result, Interactor):
                         self.interactors.add(tmp_result)
+        # print(*[interactable.name for interactable in self.interactables])
+        # print(*[interactor.name for interactor in self.interactors])
 
     def get_scene_interactions(self):
         """
@@ -422,7 +425,7 @@ class InteractionGraph:
         scene_scripts = self.scene_doc.filter(class_names=(
             "MonoBehaviour",), attributes=("m_Script",))
         for script in scene_scripts:
-            for interaction in self.interaction_types:
+            for interaction in self.interaction_events_3d:
                 if interaction.guid != script.m_Script.get("guid"):
                     continue
                 # Get the file id of the game object linked to the interactive script
@@ -431,118 +434,106 @@ class InteractionGraph:
                     interactable = Interactable(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_type=interaction.type,
-                        interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
+                        type=InteractableType.THREE_D,
+                        event=interaction.event,
+                        layer=self.get_interaction_layer(obj_id=obj_id), )
                     self.interactables.add(interactable)
                 elif interaction.role == InteractionRole.INTERACTOR:
                     interactor = Interactor(
                         name=self._get_prefab_name(obj_id),
                         script=interaction.file,
-                        interaction_type=interaction.type,
-                        interaction_layer=self._get_interaction_layer(obj_id=obj_id), )
+                        event=interaction.event,
+                        layer=self.get_interaction_layer(obj_id=obj_id), )
                     self.interactors.add(interactor)
+
+    def get_linked_object_name(self, anchor):
+        entry = self.get_entry_by_anchor(anchor)
+        if hasattr(entry, "m_Name"):
+            return entry.m_Name
+        return None
+
 
     def get_ui_objects(self):
         """
-        Get all ui objects from the scene and prefabs
+        Get all UI objects from the scene and prefabs by checking for interaction events
         """
-        default_ui_interaction_type = set()  # set the default interaction types for all uis to "activate"
-        default_ui_interaction_type.add(InteractionType.ACTIVATE)
-        default_ui_interaction_script = None
+        # TODO check if object in scene is activated or not
+        # default_ui_interaction_script = None
         default_ui_interaction_layer = -2  # UI objects do not have interaction layers, set value to -2
-        # scene ui objects
-        scene_uis = set()
-        delegates = self.scene_doc.filter(
-            class_names=("MonoBehaviour",), attributes=("m_Delegates",))
-        for delegate in delegates:
-            obj_id = delegate.m_GameObject.get("fileID")
-            if self._get_prefab_name(obj_id):
-                ui = Interactable(name=self._get_prefab_name(obj_id),
-                                  script=default_ui_interaction_script,
-                                  interaction_type=default_ui_interaction_type,
-                                  interaction_layer=default_ui_interaction_layer)
-                scene_uis.add(ui)
-
-        def has_delegates_in_prefab(prefab, processed):
-            """
-            Recursive search method to get nested prefab ui objects
-            """
-            if prefab in processed:
-                return False
-            processed.add(prefab)
-            # check if the prefab contain event triggers
-            prefab_doc = UnityDocument.load_yaml(prefab.file)
-            if prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Delegates",)):
-                return True
-            # check nested prefabs
-            for nested_prefab in self._get_nested_prefab(prefab):
-                if has_delegates_in_prefab(nested_prefab, processed):
-                    return True
-            return False
-
-        # prefab ui objects
-        prefab_uis = set()
+        # Scene UI objects
+        scene_scripts = self.scene_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Script",))
+        for script in scene_scripts:
+            linked_object = script.m_GameObject["fileID"]
+            name = self.get_linked_object_name(linked_object)
+            if not name:
+                name = self._get_prefab_name(obj_id)
+            obj_id = script.m_GameObject.get("fileID")
+            for interaction in self.interaction_events_ui:
+                if interaction.guid != script.m_Script.get("guid"):
+                    continue
+                # Get the file id of the game object linked to the interactive script
+                if interaction.role == InteractionRole.INTERACTABLE:
+                    ui = Interactable(
+                        name=name,
+                        script=interaction.file,
+                        type=InteractableType.TWO_D,
+                        event=interaction.event,
+                        layer=default_ui_interaction_layer
+                    )
+                    self.interactables.add(ui)
+        # Prefab UI objects
         processed_prefabs = set()
-        for prefab_source in self.get_prefabs_source_from_scene():
-            if has_delegates_in_prefab(prefab_source, processed_prefabs):
-                ui = Interactable(
-                    name=prefab_source.name,
-                    script=default_ui_interaction_script,
-                    interaction_type=default_ui_interaction_type,
-                    interaction_layer=default_ui_interaction_layer
-                )
-                prefab_uis.add(ui)
-        return scene_uis.union(prefab_uis)
-
-    @log_execution_time
-    def get_interactors_interactables(self):
-        """
-        Categorise scene interactives and interactive prefabs into interactables and interactors
-        Returns: Dictionary with two lists - 'interactables' and 'interactors'
-        """
-        prefab_results = self.get_interactive_prefabs()
-        scene_results = self.get_scene_interactions()
-        uis = self.get_ui_objects()
-        interactors = prefab_results['interactors'].union(scene_results['interactors'])
-        interactables = prefab_results['interactables'].union(scene_results['interactables']).union(uis)
-        interactables_3d = prefab_results['interactables'].union(scene_results['interactables'])
-        logger.info(
-            f"Interactors: {[_.name for _ in interactors]}, length: {len(interactors)}")
-        logger.info(
-            f"Interactables: {[' '.join((_.name, str(_.interaction_type))) for _ in interactables_3d]}, length: {len(interactables_3d)}")
-        logger.info(f"UIs: {[_.name for _ in uis]}, length: {len(uis)}")
-        return interactors, interactables
+        for prefab_source in self.get_scene_prefabs():
+            if prefab_source in processed_prefabs:
+                continue
+            processed_prefabs.add(prefab_source)
+            prefab_doc = UnityDocument.load_yaml(prefab_source.file)
+            script_guids = {script.m_Script.get("guid") for script in
+                          prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
+            for interaction in self.interaction_events_ui:
+                if interaction.guid not in script_guids:
+                    continue
+                if interaction.role == InteractionRole.INTERACTABLE:
+                    ui = Interactable(
+                        name=prefab_source.name,
+                        script=interaction.file,
+                        type=InteractableType.TWO_D,
+                        event=interaction.event,
+                        layer=default_ui_interaction_layer
+                    )
+                    self.interactables.add(ui)
 
     def build_graph(self):
         G = nx.MultiDiGraph()
         connectionstyles = [f"arc3,rad={r}" for r in it.accumulate([0.15] * 4)]
         plt.figure(figsize=(12, 10))
         colors = {
-            InteractionType.SELECT: 'lightcoral',
-            InteractionType.ACTIVATE: 'lightsteelblue',
-            InteractionType.SOCKET: 'khaki',
+            InteractionEvent.SELECT: 'lightcoral',
+            InteractionEvent.ACTIVATE: 'lightsteelblue',
+            InteractionEvent.SOCKET: 'khaki',
         }
         # Add nodes and edges
         interactor_user = None
         interactor_socket = set()
         for interactor in self.interactors:
-            if InteractionType.SOCKET in interactor.interaction_type:
+            if InteractionEvent.SOCKET in interactor.event:
                 G.add_node(interactor.name)
                 interactor_socket.add(interactor)
         for interactor in self.interactors:
-            if InteractionType.SOCKET not in interactor.interaction_type:
+            if InteractionEvent.SOCKET not in interactor.event:
                 G.add_node(interactor.name)
                 interactor_user = interactor
                 break
         edges_by_type = {}
         for interactable in self.interactables:
             G.add_node(interactable.name)
-            G.add_edge(interactor_user.name, interactable.name, interactable.interaction_type)
-            edges_by_type.setdefault(interactable.interaction_type, []).append((interactor_user.name, interactable.name))
+            G.add_edge(interactor_user.name, interactable.name, interactable.event)
+            edges_by_type.setdefault(interactable.event, []).append((interactor_user.name, interactable.name))
             for socket in interactor_socket:
                 if socket.interaction_layer == interactable.interaction_layer:
                     G.add_edge(interactor_user.name, interactable.name)
-                    edges_by_type.setdefault(InteractionType.SOCKET, []).append((socket.name, interactable.name))
+                    edges_by_type.setdefault(InteractionEvent.SOCKET, []).append((socket.name, interactable.name))
         pos = nx.spring_layout(G)
         nx.draw_networkx_nodes(G, pos, node_size=60)
         nx.draw_networkx_labels(G, pos, font_size=10)
@@ -562,6 +553,7 @@ class InteractionGraph:
         # self.get_interactors_interactables()
         self.get_interactive_prefabs()
         self.get_scene_interactions()
+        self.get_ui_objects()
         print(len(self.interactables))
         print(len(self.interactors))
         self.build_graph()
@@ -578,4 +570,4 @@ if __name__ == '__main__':
 
     graph = InteractionGraph(project_root, scene_under_test)
     graph.test()
-    # print(graph.get_asset_name_by_guid("cec1aebf75b74914097378398b58a48e"))
+    # print(graph.get_asset_name_by_guid("4e29b1a8efbd4b44bb3f3716e73f07ff"))

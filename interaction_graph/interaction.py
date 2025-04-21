@@ -1,7 +1,7 @@
 from enum import Enum, IntEnum, StrEnum
 
 
-class InteractionType(StrEnum):
+class InteractionEvent(StrEnum):
     SELECT = "select"
     ACTIVATE = "activate"
     SOCKET = "socket"
@@ -13,12 +13,12 @@ class InteractionRole(StrEnum):
     INTERACTOR = "interactor"
 
 class Interaction:
-    def __init__(self, name, file, guid, role, type):
+    def __init__(self, name, file, guid, event, role):
         self.name = name
         self.file = file
         self.guid = guid
+        self.event = event # type of the interaction: activate, socket, etc.
         self.role = role # role of the interaction: interactable or interactor
-        self.type = type # type of the interaction: activate, socket, etc.
 
     def __str__(self):
-        return f"{self.name} ({self.type})"
+        return f"{self.name} ({self.event})"

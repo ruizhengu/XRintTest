@@ -11,3 +11,9 @@ interactors:
   user:
     - XRPokeInteractor
     - NearFarInteractor
+uis:
+  activate:
+    - Button
+    - Slider
+    - Toggle
+    - Dropdown

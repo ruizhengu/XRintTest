@@ -16,6 +16,7 @@ from interaction import Interaction, InteractionEvent, InteractionRole
 from loguru import logger
 from enum import StrEnum
 import utils
+import json
 
 
 def log_execution_time(func):
@@ -74,10 +75,9 @@ class InteractionGraph:
             self.root / "Assets",
             self.root / "Library"
         ]
+        self.script_path = self.root / "Assets" / "Scripts"
         self.sut = sut
         self.scene_doc = UnityDocument.load_yaml(self.sut)
-        # self.custom_script_path = self.root / "Assets/VRTemplateAssets/Scripts"
-        # self.predefined_interactions = self.get_predefined_interactions()
         self.interaction_events_3d = self.get_interaction_types_3d()
         self.interaction_events_ui = self.get_interaction_types_ui()
         self.interactables = set()
@@ -170,6 +170,8 @@ class InteractionGraph:
             class_names=("PrefabInstance",), attributes=("m_SourcePrefab",))
         for instance in scene_prefab_instances:
             # print(self._get_prefab_instance_name(instance.anchor))
+            if hasattr(instance, "m_IsActive") and instance.m_IsActive != 1:
+                continue
             prefab_guid = instance.m_SourcePrefab.get("guid")
             if prefab_guid in asset_prefab_guids:
                 # prefab_name = asset_prefab_guids[prefab_guid].stem.replace(".prefab", "")
@@ -414,8 +416,6 @@ class InteractionGraph:
                         self.interactables.add(tmp_result)
                     elif isinstance(tmp_result, Interactor):
                         self.interactors.add(tmp_result)
-        # print(*[interactable.name for interactable in self.interactables])
-        # print(*[interactor.name for interactor in self.interactors])
 
     def get_scene_interactions(self):
         """
@@ -452,13 +452,10 @@ class InteractionGraph:
             return entry.m_Name
         return None
 
-
     def get_ui_objects(self):
         """
         Get all UI objects from the scene and prefabs by checking for interaction events
         """
-        # TODO check if object in scene is activated or not
-        # default_ui_interaction_script = None
         default_ui_interaction_layer = -2  # UI objects do not have interaction layers, set value to -2
         # Scene UI objects
         scene_scripts = self.scene_doc.filter(
@@ -521,9 +518,9 @@ class InteractionGraph:
                 G.add_node(interactor.name)
                 interactor_socket.add(interactor)
         for interactor in self.interactors:
-            if InteractionEvent.SOCKET not in interactor.event:
-                G.add_node(interactor.name)
+            if interactor.name == "XR Origin (XR Rig)":
                 interactor_user = interactor
+                G.add_node(interactor.name)
                 break
         edges_by_type = {}
         for interactable in self.interactables:
@@ -548,19 +545,55 @@ class InteractionGraph:
             edge_labels = {(u, v): edge_type for u, v in edges}
             nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10)
         plt.show()
+        # return self._sort_graph_results(G, edges_by_type)
+
+    def sort_graph_results(self):
+        # Get socket interactors
+        socket_interactors = {i for i in self.interactors if InteractionEvent.SOCKET in i.event}
+        results = []
+        for interactable in self.interactables:
+            # Add base interaction with XR Rig
+            results.append({
+                "interactor": "XR Origin (XR Rig)",
+                "condition": [],
+                "interactable": interactable.name,
+                "type": interactable.type,
+                "event": interactable.event
+            })
+            # Add socket interactions if layers match
+            for socket in socket_interactors:
+                if socket.interaction_layer == interactable.interaction_layer:
+                    results.append({
+                        "interactor": socket.name,
+                        "condition": [], 
+                        "interactable": interactable.name,
+                        "type": InteractionEvent.SOCKET,
+                        "event": interactable.event
+                    })
+        # Check for duplicate interactables and set condition for activate events
+        interactable_names = {}
+        for result in results:
+            name = result["interactable"]
+            if name in interactable_names:
+                # If this is an activate event and we've seen this name before
+                if result["event"] == "activate":
+                    result["condition"] = ["select"]
+            else:
+                interactable_names[name] = True
+        # Convert to JSON and save
+        output_path = self.script_path / "interaction_results.json"
+        with open(output_path, 'w') as f:
+            json.dump(results, f, default=str, indent=4)
 
     def test(self):
         # self.get_interactors_interactables()
         self.get_interactive_prefabs()
         self.get_scene_interactions()
         self.get_ui_objects()
-        print(len(self.interactables))
-        print(len(self.interactors))
-        self.build_graph()
-        # self.get_scene_interactives()
-        # for interactable in self.interactables:
-        #     print(interactable.name, interactable.script)
-        # self.get_interactive_prefabs()
+        # print(len(self.interactables))
+        # print(len(self.interactors))
+        # self.build_graph()
+        self.sort_graph_results()
 
 
 if __name__ == '__main__':

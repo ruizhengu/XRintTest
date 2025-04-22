@@ -3,9 +3,33 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using System;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using SimpleJSON;
+using Newtonsoft.Json;
+
+
+[Serializable]
+public class InteractionEvent
+{
+  public string interactor;
+  public List<string> condition;
+  public string interactable;
+  public string type;
+  public string event_type;
+
+  public InteractionEvent(string interactor, List<string> condition, string interactable, string type, string event_type)
+  {
+    this.interactor = interactor;
+    this.condition = condition;
+    this.interactable = interactable;
+    this.type = type;
+    this.event_type = event_type;
+  }
+}
+
 public static class Utils
 {
   /// <summary>
@@ -55,8 +79,6 @@ public static class Utils
     return worldDirection;
   }
 
-
-
   public static Dictionary<GameObject, InteractableObject> GetInteractables()
   {
     Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
@@ -77,5 +99,24 @@ public static class Utils
       }
     }
     return interactables;
+  }
+
+  /// <summary>
+  /// Get the interaction events from the interaction_results.json file
+  /// </summary>
+  public static void GetInteractionEvents()
+  {
+    // List<InteractableObject> interactableObjects = new List<InteractableObject>();
+    string jsonPath = Path.Combine(Application.dataPath, "Scripts/interaction_results.json");
+
+    using (StreamReader r = new StreamReader(jsonPath))
+    {
+      string json = r.ReadToEnd();
+      List<InteractionEvent> interactionEvents = JsonConvert.DeserializeObject<List<InteractionEvent>>(json);
+      foreach (InteractionEvent interactionEvent in interactionEvents)
+      {
+        Debug.Log(interactionEvent.interactor + ", " + interactionEvent.interactable + ", " + interactionEvent.type + ", " + interactionEvent.event_type + ", " + string.Join(", ", interactionEvent.condition));
+      }
+    }
   }
 }

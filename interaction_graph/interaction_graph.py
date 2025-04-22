@@ -462,7 +462,7 @@ class InteractionGraph:
                 "condition": [],
                 "interactable": interactable.name,
                 "type": interactable.type,
-                "event": interactable.event
+                "event_type": interactable.event
             })
             for socket in socket_interactors:
                 if socket.interaction_layer == interactable.interaction_layer:
@@ -471,13 +471,13 @@ class InteractionGraph:
                         "condition": [],
                         "interactable": interactable.name,
                         "type": InteractionEvent.SOCKET,
-                        "event": interactable.event
+                        "event_type": interactable.event
                     })
         interactable_names = {}
         for result in results:
             name = result["interactable"]
             if name in interactable_names:
-                if result["event"] == "activate":
+                if result["event_type"] == "activate":
                     result["condition"] = ["select"]
             else:
                 interactable_names[name] = True

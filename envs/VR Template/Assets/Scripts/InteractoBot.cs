@@ -65,6 +65,14 @@ public class InteractoBot : MonoBehaviour
         FindSimulatedDevices(); // Find the simulated devices
         interactableCount = interactables.Count;
         Debug.Log("Number of Interactables in Scene: " + interactableCount);
+        Utils.GetInteractionEvents();
+        // Get and log interaction results
+        // List<InteractionResult> interactionResults = Utils.GenerateInteractionResults();
+        // Debug.Log("Generated Interaction Results:");
+        // foreach (var result in interactionResults)
+        // {
+        //     Debug.Log($"Interactor: {result.interactor}, Interactable: {result.interactable}, Type: {result.type}, Event: {result.event_type}, Conditions: {string.Join(", ", result.condition)}");
+        // }
     }
 
     /// <summary>

@@ -8,18 +8,37 @@ using System.Runtime.InteropServices;
 public class InteractableObject
 {
   GameObject interactable;
+  string name;
   bool interacted;
   bool visited;
-  String type;
-  public InteractableObject(GameObject go, String type)
+  string type;
+  string eventType;
+  string condition;
+  public InteractableObject(GameObject go, string type)
   {
     this.interactable = go;
     this.type = type;
+    this.visited = false;
+    this.interacted = false;
+  }
+
+  public InteractableObject(string name, string type, string eventType, string condition)
+  {
+    this.name = name;
+    this.type = type;
+    this.eventType = eventType;
+    this.condition = condition;
+    this.visited = false;
     this.interacted = false;
   }
   public GameObject GetObject()
   {
     return this.interactable;
+  }
+
+  public void SetGameObject(GameObject go)
+  {
+    this.interactable = go;
   }
 
   public void SetInteracted(bool flag)

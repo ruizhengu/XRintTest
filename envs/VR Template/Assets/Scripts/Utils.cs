@@ -104,19 +104,14 @@ public static class Utils
   /// <summary>
   /// Get the interaction events from the interaction_results.json file
   /// </summary>
-  public static void GetInteractionEvents()
+  public static List<InteractionEvent> GetInteractionEvents()
   {
-    // List<InteractableObject> interactableObjects = new List<InteractableObject>();
     string jsonPath = Path.Combine(Application.dataPath, "Scripts/interaction_results.json");
-
     using (StreamReader r = new StreamReader(jsonPath))
     {
       string json = r.ReadToEnd();
       List<InteractionEvent> interactionEvents = JsonConvert.DeserializeObject<List<InteractionEvent>>(json);
-      foreach (InteractionEvent interactionEvent in interactionEvents)
-      {
-        Debug.Log(interactionEvent.interactor + ", " + interactionEvent.interactable + ", " + interactionEvent.type + ", " + interactionEvent.event_type + ", " + string.Join(", ", interactionEvent.condition));
-      }
+      return interactionEvents;
     }
   }
 }

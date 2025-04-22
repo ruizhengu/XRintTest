@@ -22,15 +22,6 @@ public class InteractableObject
     this.interacted = false;
   }
 
-  public InteractableObject(string name, string type, string eventType, string condition)
-  {
-    this.name = name;
-    this.type = type;
-    this.eventType = eventType;
-    this.condition = condition;
-    this.visited = false;
-    this.interacted = false;
-  }
   public GameObject GetObject()
   {
     return this.interactable;

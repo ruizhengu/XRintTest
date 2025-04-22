@@ -14,7 +14,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 public class InteractoBot : MonoBehaviour
 {
     // public SceneExplore explorer;
-    public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
+    // public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
     // public List<InteractionEvent> interactionEvents = new List<InteractionEvent>();
     List<InteractableObject> interactableObjects;
     public int interactionCount = 0;
@@ -54,30 +54,11 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    // void Awake()
-    // {
-    //     explorer = new SceneExplore(transform);
-    // }
-
     void Start()
     {
-        // interactables = Utils.GetInteractables();
-        RegisterListener(); // Register listeners for interactables and UIs
-        // RegisterControlListeners(); // Register listeners for UI controls
-        FindSimulatedDevices(); // Find the simulated devices
-        // interactionCount = interactables.Count;
-        // Debug.Log("Number of Interactables in Scene: " + interactionCount);
-        // interactionEvents = Utils.GetInteractionEvents();
-        // interactionCount = interactionEvents.Count;
-        // Debug.Log("Number of Interaction Events: " + interactionCount);
         interactableObjects = GetInteractableObjects();
-        // Get and log interaction results
-        // List<InteractionResult> interactionResults = Utils.GenerateInteractionResults();
-        // Debug.Log("Generated Interaction Results:");
-        // foreach (var result in interactionResults)
-        // {
-        //     Debug.Log($"Interactor: {result.interactor}, Interactable: {result.interactable}, Type: {result.type}, Event: {result.event_type}, Conditions: {string.Join(", ", result.condition)}");
-        // }
+        RegisterListener(); // Register listeners for interactables and UIs
+        FindSimulatedDevices(); // Find the simulated devices
     }
 
     /// <summary>
@@ -430,9 +411,9 @@ public class InteractoBot : MonoBehaviour
     void RegisterListener()
     {
         // Register listeners for common interactable types
-        foreach (KeyValuePair<GameObject, InteractableObject> entry in interactables)
+        foreach (var obj in interactableObjects)
         {
-            var baseInteractable = entry.Key.GetComponent<XRBaseInteractable>();
+            var baseInteractable = obj.GetObject().GetComponent<XRBaseInteractable>();
             if (baseInteractable != null)
             {
                 baseInteractable.selectEntered.AddListener(OnSelectEntered);
@@ -470,11 +451,11 @@ public class InteractoBot : MonoBehaviour
     void SetObjectInteracted(string interactableName)
     {
         // InteractableObject objectToRemove = null;
-        foreach (var entry in interactables)
+        foreach (var obj in interactableObjects)
         {
-            if (entry.Key.name == interactableName)
+            if (obj.GetObject().name == interactableName)
             {
-                entry.Value.SetInteracted(true);
+                obj.SetInteracted(true);
                 // Debug.Log($"Inteacted: {interactableName} set to {entry.Value.GetInteracted()}");
                 break;
             }
@@ -484,15 +465,15 @@ public class InteractoBot : MonoBehaviour
     private int CountInteracted()
     {
         int count = 0;
-        foreach (var entry in interactables)
+        foreach (var obj in interactableObjects)
         {
-            if (entry.Value.GetInteracted())
+            if (obj.GetInteracted())
             {
                 count++;
             }
             else
             {
-                Debug.Log("Not Interacted Interactable: " + entry.Key.name);
+                Debug.Log("Not Interacted Interactable: " + obj.GetObject().name);
             }
         }
         return count;

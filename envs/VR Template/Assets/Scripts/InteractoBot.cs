@@ -19,13 +19,14 @@ public class InteractoBot : MonoBehaviour
     // Input device references
     private InputDevice simulatedControllerDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
+    private float interactionDelay = 0.008f; // The delay between interaction events
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
+    private float controllerMovementThreshold = 0.04f; // The distance of controller movement to continue interaction
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -230,7 +231,7 @@ public class InteractoBot : MonoBehaviour
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
             // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(0.005f);
+            yield return new WaitForSeconds(interactionDelay);
         }
         isProcessingKeyCommands = false;
     }
@@ -273,7 +274,7 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
-        float threshold = controllerMovementThreshold * 0.8f;
+        float threshold = controllerMovementThreshold;
         float absX = Mathf.Abs(x);
         float absY = Mathf.Abs(y);
         float absZ = Mathf.Abs(z);

@@ -1,0 +1,137 @@
+[
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Tutorial Player",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Sphere Interactable",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Cube Interactable",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Blaster",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [
+            "select"
+        ],
+        "interactable": "Blaster",
+        "type": "3d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Teleport Anchor",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Toggle",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Totem1",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Totem2",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Cylinder Interactable",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Button",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Rotating Torus",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Torus Interactable",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Text Poke Button Special",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Slider",
+        "type": "2d",
+        "event": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Spatial Panel Manipulator Model",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Spatial Panel Manipulator UI Examples",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Tapered Interactable",
+        "type": "3d",
+        "event": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Tapered Interactable 1",
+        "type": "3d",
+        "event": "select"
+    }
+]

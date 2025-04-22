@@ -1,14 +1,15 @@
 from interaction import Interaction, InteractionEvent, InteractionRole
 from typing import Optional, Tuple
 
+
 def get_interaction_event_role(predefined_interactions: dict, file_name: str) -> Tuple[Optional[InteractionEvent], Optional[InteractionRole]]:
     """
     Determine the interaction event and role for a given file name based on predefined interactions.
-    
+
     Args:
         predefined_interactions: Dictionary containing predefined interaction mappings
         file_name: Name of the file to check
-        
+
     Returns:
         Tuple containing the interaction event and role, or (None, None) if no match found
     """
@@ -28,8 +29,9 @@ def get_interaction_event_role(predefined_interactions: dict, file_name: str) ->
     for category, types in interaction_mappings.items():
         for interaction_type, (event, role) in types.items():
             if file_name in predefined_interactions[category][interaction_type]:
-                return event, role 
+                return event, role
     return None, None
+
 
 def get_interaction_ui_event(predefined_interactions: dict, file_name: str) -> Optional[InteractionEvent]:
     """
@@ -37,7 +39,7 @@ def get_interaction_ui_event(predefined_interactions: dict, file_name: str) -> O
     Args:
         predefined_interactions: Dictionary containing predefined interaction mappings
         file_name: Name of the file to check
-        
+
     Returns:
         InteractionEvent if a match is found, None otherwise
     """
@@ -46,6 +48,7 @@ def get_interaction_ui_event(predefined_interactions: dict, file_name: str) -> O
         return InteractionEvent.ACTIVATE
     return None
 
+
 def get_interaction_layer_modification(modifications):
     """
     Extract interaction layer value from modifications
@@ -53,6 +56,7 @@ def get_interaction_layer_modification(modifications):
     for mod in modifications:
         if mod.get("propertyPath") == "m_InteractionLayers.m_Bits":
             return mod.get("value")
+
 
 def has_precondition(prefab_doc):
     """
@@ -64,3 +68,64 @@ def has_precondition(prefab_doc):
                 return True
     return False
 
+
+def get_prefab_name(doc, obj_id):
+    """Helper to get prefab name from object ID"""
+    if entry := get_entry_by_anchor(doc, obj_id):
+        # Check if this is a PrefabInstance entry
+        if hasattr(entry, "m_PrefabInstance"):
+            if prefab_id := entry.m_PrefabInstance.get("fileID"):
+                if prefab_entry := get_entry_by_anchor(doc, prefab_id):
+                    # Check if prefab entry has modifications
+                    if hasattr(prefab_entry, "m_Modification"):
+                        for mod in prefab_entry.m_Modification["m_Modifications"]:
+                            if mod.get("propertyPath") == "m_Name":
+                                return mod.get("value")
+                    # If no modifications, try to get name directly
+                    elif hasattr(prefab_entry, "m_Name"):
+                        return prefab_entry.m_Name
+        # If not a PrefabInstance, try to get the name directly
+        elif hasattr(entry, "m_Name"):
+            return entry.m_Name
+    return None
+
+
+def get_prefab_instance_name(doc, obj_id):
+    """Helper to get prefab name from object ID"""
+    if entry := get_entry_by_anchor(doc, obj_id):
+        # Check if this is a PrefabInstance entry
+        if hasattr(entry, "m_Modification"):
+            for mod in entry.m_Modification["m_Modifications"]:
+                if mod.get("propertyPath") == "m_Name":
+                    return mod.get("value")
+        # If not a PrefabInstance, try to get the name directly
+        elif hasattr(entry, "m_Name"):
+            return entry.m_Name
+    return None
+
+
+def get_entry_by_anchor(doc, anchor):
+    """Get entry by anchor from Unity document"""
+    for entry in doc.entries:
+        if entry.anchor == anchor:
+            return entry
+    return None
+
+
+def get_object_name(doc, obj_id):
+    """Get object name from Unity document"""
+    if entry := get_entry_by_anchor(doc, obj_id):
+        if hasattr(entry, "m_Name"):
+            return entry.m_Name
+    return None
+
+
+def get_file_guid(file_name):
+    """Get the guid of the file"""
+    import re
+    with open(file_name, 'r', encoding='utf-8') as f:
+        content = f.read()
+        guid_match = re.search(r'guid: (\w+)', content)
+        if guid_match:
+            return guid_match.group(1)
+    return None

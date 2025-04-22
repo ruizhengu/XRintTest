@@ -13,15 +13,11 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class InteractoBot : MonoBehaviour
 {
-    // public SceneExplore explorer;
-    // public Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
-    // public List<InteractionEvent> interactionEvents = new List<InteractionEvent>();
-    List<InteractableObject> interactableObjects;
+    public List<InteractableObject> interactableObjects;
     public int interactionCount = 0;
     public GameObject rightController;
     // Input device references
     private InputDevice simulatedControllerDevice;
-    // private InputDevice simulatedHMDDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 1.0f;
@@ -57,6 +53,7 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         interactableObjects = GetInteractableObjects();
+        interactionCount = interactableObjects.Count;
         RegisterListener(); // Register listeners for interactables and UIs
         FindSimulatedDevices(); // Find the simulated devices
     }
@@ -87,99 +84,98 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         InteractableObject closestInteractable = GetCloestInteractable();
-        Debug.Log("Closest Interactable: " + closestInteractable.GetObject().name);
-        // rightController = GameObject.Find("Right Controller");
-        // if (rightController == null)
-        // {
-        //     return;
-        // }
-        // if (closestInteractable != null)
-        // {
-        //     GameObject closestObject = closestInteractable.GetObject();
-        //     Vector3 currentPos = transform.position;
-        //     Vector3 targetPos = closestObject.transform.position;
-        //     // Rotation (only rotate y-axis)
-        //     Vector3 targetDirection = (targetPos - currentPos).normalized;
-        //     targetDirection.y = 0;
-        //     float angle = Vector3.Angle(transform.forward, targetDirection);
-        //     if (angle > interactionAngle)
-        //     {
-        //         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-        //         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
-        //         return; // Don't proceed with controller actions until angle difference is small enough
-        //     }
-        //     // Player Movement (calculate distance ignoring Y axis)
-        //     Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
-        //     Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
-        //     float viewportDistance = Utils.GetUserViewportDistance(flatCurrentPos, flatTargetPos);
-        //     float interactionDistance = Utils.GetInteractionDistance();
-        //     if (viewportDistance > interactionDistance)
-        //     {
-        //         Vector3 newPosition = Vector3.MoveTowards(
-        //             new Vector3(currentPos.x, currentPos.y, currentPos.z),
-        //             new Vector3(targetPos.x, currentPos.y, targetPos.z),
-        //             moveSpeed * Time.deltaTime
-        //         );
-        //         transform.position = newPosition;
-        //         return; // Don't proceed with controller actions until close enough
-        //     }
-        //     timeSinceLastUpdate += Time.deltaTime;
-        //     if (timeSinceLastUpdate >= updateInterval)
-        //     {
-        //         timeSinceLastUpdate = 0f;
-        //         // Controller Movement
-        //         Vector3 controllerCurrentPos = rightController.transform.position;
-        //         Vector3 controllerTargetPos = closestObject.transform.position;
-        //         Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
-        //         if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
-        //         {
-        //             // Set to the right controller state
-        //             SwitchControllerState(ControllerState.RightController);
-        //             // Move towards the target
-        //             MoveControllerInDirection(controllerWorldDirection.normalized);
-        //         }
-        //         else
-        //         {
-        //             closestInteractable.SetVisited(true);
-        //             if (closestInteractable.GetObjectType() == "3d")
-        //             {
-        //                 ControllerGripAction();
-        //             }
-        //             else if (closestInteractable.GetObjectType() == "2d")
-        //             {
-        //                 // TODO: for UIs, go to the position, and go backward to forward to trigger and reset the UI element
-        //                 ControllerTriggerAction();
-        //             }
-        //             // Wait for grip success confirmation
-        //             // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
-        //             // {
-        //             //     gripCheckTimer += Time.deltaTime;
-        //             //     // return;
-        //             // }
+        rightController = GameObject.Find("Right Controller");
+        if (rightController == null)
+        {
+            return;
+        }
+        if (closestInteractable != null)
+        {
+            GameObject closestObject = closestInteractable.GetObject();
+            Vector3 currentPos = transform.position;
+            Vector3 targetPos = closestObject.transform.position;
+            // Rotation (only rotate y-axis)
+            Vector3 targetDirection = (targetPos - currentPos).normalized;
+            targetDirection.y = 0;
+            float angle = Vector3.Angle(transform.forward, targetDirection);
+            if (angle > interactionAngle)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
+                return; // Don't proceed with controller actions until angle difference is small enough
+            }
+            // Player Movement (calculate distance ignoring Y axis)
+            Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
+            Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
+            float viewportDistance = Utils.GetUserViewportDistance(flatCurrentPos, flatTargetPos);
+            float interactionDistance = Utils.GetInteractionDistance();
+            if (viewportDistance > interactionDistance)
+            {
+                Vector3 newPosition = Vector3.MoveTowards(
+                    new Vector3(currentPos.x, currentPos.y, currentPos.z),
+                    new Vector3(targetPos.x, currentPos.y, targetPos.z),
+                    moveSpeed * Time.deltaTime
+                );
+                transform.position = newPosition;
+                return; // Don't proceed with controller actions until close enough
+            }
+            timeSinceLastUpdate += Time.deltaTime;
+            if (timeSinceLastUpdate >= updateInterval)
+            {
+                timeSinceLastUpdate = 0f;
+                // Controller Movement
+                Vector3 controllerCurrentPos = rightController.transform.position;
+                Vector3 controllerTargetPos = closestObject.transform.position;
+                Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
+                if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
+                {
+                    // Set to the right controller state
+                    SwitchControllerState(ControllerState.RightController);
+                    // Move towards the target
+                    MoveControllerInDirection(controllerWorldDirection.normalized);
+                }
+                else
+                {
+                    closestInteractable.SetVisited(true);
+                    if (closestInteractable.GetObjectType() == "3d")
+                    {
+                        ControllerGripAction();
+                    }
+                    else if (closestInteractable.GetObjectType() == "2d")
+                    {
+                        // TODO: for UIs, go to the position, and go backward to forward to trigger and reset the UI element
+                        ControllerTriggerAction();
+                    }
+                    // Wait for grip success confirmation
+                    // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
+                    // {
+                    //     gripCheckTimer += Time.deltaTime;
+                    //     // return;
+                    // }
 
-        //             // if (gripSuccess)
-        //             // {
-        //             //     Debug.Log("Grip action successful - object selected");
-        //             // }
-        //             // else
-        //             // {
-        //             //     Debug.Log("Grip action failed - no object selected");
-        //             // }
-        //             ResetControllerPosition();
-        //         }
-        //     }
-        // }
-        // else
-        // {
-        //     // TODO: add report (success rate)
-        //     Debug.Log("Test End");
-        //     Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
-        // }
-        // // Process the command queue
-        // if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
-        // {
-        //     StartCoroutine(ProcessKeyCommandQueue());
-        // }
+                    // if (gripSuccess)
+                    // {
+                    //     Debug.Log("Grip action successful - object selected");
+                    // }
+                    // else
+                    // {
+                    //     Debug.Log("Grip action failed - no object selected");
+                    // }
+                    ResetControllerPosition();
+                }
+            }
+        }
+        else
+        {
+            // TODO: add report (success rate)
+            Debug.Log("Test End");
+            Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
+        }
+        // Process the command queue
+        if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
+        {
+            StartCoroutine(ProcessKeyCommandQueue());
+        }
     }
 
     // Ensure we're in the desired controller manipulation state
@@ -518,6 +514,7 @@ public class InteractoBot : MonoBehaviour
     {
         Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
         SetObjectInteracted(eventData.pointerEnter.name);
+        // TODO: deal with UI elements
     }
 
     /// <summary>

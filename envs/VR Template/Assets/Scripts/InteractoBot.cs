@@ -28,8 +28,10 @@ public class InteractoBot : MonoBehaviour
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
-    private float interactionOffset = 0.1f; // Small distance in front of the target for interaction
+    private float controllerMovementThreshold = 0.03f; // The distance of controller movement to continue interaction
+    private float interactionOffset = 0.05f; // Small distance in front of the target for interaction
+    private float stateTransitionDelay = 0.1f; // Delay between state transitions
+    private bool isControllerMoving = false; // Flag to track if controller is currently moving
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -38,7 +40,16 @@ public class InteractoBot : MonoBehaviour
         Both,
         HMD
     }
+    private enum ExplorationState
+    {
+        // None,
+        Navigation,
+        ControllerMovement,
+        ThreeDInteraction,
+        TwoDInteraction
+    }
     private ControllerState currentControllerState = ControllerState.None; // Default state
+    private ExplorationState currentExplorationState = ExplorationState.Navigation; // Default state
     // Queue for processing movement commands one at a time
     private Queue<KeyCommand> keyCommandQueue = new Queue<KeyCommand>();
     private bool isProcessingKeyCommands = false;
@@ -48,13 +59,15 @@ public class InteractoBot : MonoBehaviour
         public Key key;
         public bool press; // true for press, false for release
         public float duration; // The duration of the key press
-        public KeyCommand(Key key, bool press, float duration = 0.001f)
+        public KeyCommand(Key key, bool press, float duration = 0.01f)
         {
             this.key = key;
             this.press = press;
             this.duration = duration;
         }
     }
+    private bool hasPerformedGripAction = false; // Flag to track if grip action has been performed
+    private bool hasPerformedTriggerAction = false; // Flag to track if trigger action has been performed
 
     void Start()
     {
@@ -89,100 +102,177 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
-        InteractableObject closestInteractable = GetCloestInteractable();
-        // Debug.Log("Closest Interactable: " + closestInteractable.GetObject().name);
-        rightController = GameObject.Find("Right Controller");
-        if (rightController == null)
-        {
-            return;
-        }
-        if (closestInteractable != null)
-        {
-            GameObject closestObject = closestInteractable.GetObject();
-            Vector3 currentPos = transform.position;
-            Vector3 targetPos = closestObject.transform.position;
-            // Rotation (only rotate y-axis)
-            Vector3 targetDirection = (targetPos - currentPos).normalized;
-            targetDirection.y = 0;
-            float angle = Vector3.Angle(transform.forward, targetDirection);
-            if (angle > interactionAngle)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
-                return; // Don't proceed with controller actions until angle difference is small enough
-            }
-            // Player Movement (calculate distance ignoring Y axis)
-            Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
-            Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
-            float viewportDistance = Utils.GetUserViewportDistance(flatCurrentPos, flatTargetPos);
-            float interactionDistance = Utils.GetInteractionDistance();
-            if (viewportDistance > interactionDistance)
-            {
-                Vector3 newPosition = Vector3.MoveTowards(
-                    new Vector3(currentPos.x, currentPos.y, currentPos.z),
-                    new Vector3(targetPos.x, currentPos.y, targetPos.z),
-                    moveSpeed * Time.deltaTime
-                );
-                transform.position = newPosition;
-                return; // Don't proceed with controller actions until close enough
-            }
-            timeSinceLastUpdate += Time.deltaTime;
-            if (timeSinceLastUpdate >= updateInterval)
-            {
-                timeSinceLastUpdate = 0f;
-                // Controller Movement
-                Vector3 controllerCurrentPos = rightController.transform.position;
-
-                // Calculate the target position with a small offset in front of the object
-                Vector3 controllerTargetPos;
-                if (closestInteractable.GetObjectType() == "2d")
-                {
-                    // For UI elements, position slightly in front along the z-axis
-                    controllerTargetPos = closestObject.transform.position + new Vector3(0, 0, interactionOffset);
-                }
-                else
-                {
-                    // For 3D objects, use the exact position
-                    controllerTargetPos = closestObject.transform.position;
-                }
-
-                Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
-                if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
-                {
-                    // Set to the right controller state
-                    SwitchControllerState(ControllerState.RightController);
-                    // Move towards the target
-                    MoveControllerInDirection(controllerWorldDirection.normalized);
-                }
-                else
-                {
-                    closestInteractable.SetVisited(true);
-                    if (closestInteractable.GetObjectType() == "3d")
-                    {
-                        ControllerGripAction();
-                    }
-                    else if (closestInteractable.GetObjectType() == "2d")
-                    {
-                        // MoveBackwardForUI();
-                        ControllerTriggerAction();
-                    }
-                    ResetControllerPosition();
-                }
-            }
-        }
-        else
-        {
-            Debug.Log("Test End");
-            Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
-        }
         // Process the command queue
         if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
         {
             StartCoroutine(ProcessKeyCommandQueue());
         }
+        // Handle different exploration states
+        switch (currentExplorationState)
+        {
+            case ExplorationState.Navigation:
+                Navigation();
+                break;
+            case ExplorationState.ControllerMovement:
+                ControllerMovement();
+                break;
+            case ExplorationState.ThreeDInteraction:
+                ThreeDInteraction();
+                break;
+            case ExplorationState.TwoDInteraction:
+                TwoDInteraction();
+                break;
+        }
     }
 
-    // Ensure we're in the desired controller manipulation state
+    /// <summary>
+    /// Handle navigation state - move towards the closest interactable
+    /// </summary>
+    private void Navigation()
+    {
+        ResetControllerPosition();
+        InteractableObject closestInteractable = GetCloestInteractable();
+        if (closestInteractable == null)
+        {
+            Debug.Log("Test End");
+            Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
+            return;
+        }
+
+        GameObject closestObject = closestInteractable.GetObject();
+        Vector3 currentPos = transform.position;
+        Vector3 targetPos = closestObject.transform.position;
+
+        // Rotation (only rotate y-axis)
+        Vector3 targetDirection = (targetPos - currentPos).normalized;
+        targetDirection.y = 0;
+        float angle = Vector3.Angle(transform.forward, targetDirection);
+        if (angle > interactionAngle)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
+            return; // Don't proceed with controller actions until angle difference is small enough
+        }
+
+        // Player Movement (calculate distance ignoring Y axis)
+        Vector3 flatCurrentPos = new Vector3(currentPos.x, 0, currentPos.z);
+        Vector3 flatTargetPos = new Vector3(targetPos.x, 0, targetPos.z);
+        float viewportDistance = Utils.GetUserViewportDistance(flatCurrentPos, flatTargetPos);
+        float interactionDistance = Utils.GetInteractionDistance();
+        if (viewportDistance > interactionDistance)
+        {
+            Vector3 newPosition = Vector3.MoveTowards(
+                new Vector3(currentPos.x, currentPos.y, currentPos.z),
+                new Vector3(targetPos.x, currentPos.y, targetPos.z),
+                moveSpeed * Time.deltaTime
+            );
+            transform.position = newPosition;
+            return; // Don't proceed with controller actions until close enough
+        }
+        // If we're close enough, switch to controller movement with delay
+        StartCoroutine(TransitionToState(ExplorationState.ControllerMovement));
+    }
+
+    /// <summary>
+    /// Handle controller movement state - move the controller to the target
+    /// </summary>
+    private void ControllerMovement()
+    {
+        rightController = GameObject.Find("Right Controller");
+        if (rightController == null)
+        {
+            return;
+        }
+
+        InteractableObject closestInteractable = GetCloestInteractable();
+        if (closestInteractable == null)
+        {
+            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+            return;
+        }
+
+        GameObject closestObject = closestInteractable.GetObject();
+        timeSinceLastUpdate += Time.deltaTime;
+        if (timeSinceLastUpdate >= updateInterval)
+        {
+            timeSinceLastUpdate = 0f;
+            // Controller Movement
+            Vector3 controllerCurrentPos = rightController.transform.position;
+            Vector3 controllerTargetPos = closestObject.transform.position;
+            // Add offset in front of the target in the z axis
+            controllerTargetPos += new Vector3(0, 0, interactionOffset);
+
+            Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
+            float distanceToTarget = Vector3.Distance(controllerCurrentPos, controllerTargetPos);
+
+            if (distanceToTarget > controllerMovementThreshold)
+            {
+                // Set to the right controller state
+                SwitchControllerState(ControllerState.RightController);
+                // Move towards the target
+                MoveControllerInDirection(controllerWorldDirection.normalized);
+                isControllerMoving = true;
+            }
+            else
+            {
+                // Only proceed if the controller has stopped moving
+                if (isControllerMoving)
+                {
+                    // Wait for the command queue to be empty before proceeding
+                    if (keyCommandQueue.Count == 0 && !isProcessingKeyCommands)
+                    {
+                        isControllerMoving = false;
+                        closestInteractable.SetVisited(true);
+
+                        if (closestInteractable.GetObjectType() == "3d")
+                        {
+                            StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
+                        }
+                        else if (closestInteractable.GetObjectType() == "2d")
+                        {
+                            StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
+                        }
+                        // Don't reset controller position immediately to allow for interaction
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handle 3D interaction state
+    /// </summary>
+    private void ThreeDInteraction()
+    {
+        // Only perform the grip action once
+        if (!hasPerformedGripAction)
+        {
+            // Debug.Log("Starting 3D interaction with grip action");
+            ControllerGripAction();
+            hasPerformedGripAction = true;
+            // Add a delay before transitioning to give the interaction time to register
+            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+        }
+    }
+
+    /// <summary>
+    /// Handle 2D interaction state
+    /// </summary>
+    private void TwoDInteraction()
+    {
+        // Only perform the trigger action once
+        if (!hasPerformedTriggerAction)
+        {
+            ControllerTriggerAction();
+            hasPerformedTriggerAction = true;
+            // After trigger action, return to navigation with delay
+            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+        }
+    }
+
+    /// <summary>
+    /// Ensure we're in the desired controller manipulation state
+    /// </summary>
     void SwitchControllerState(ControllerState targetState)
     {
         if (currentControllerState == targetState)
@@ -317,15 +407,17 @@ public class InteractoBot : MonoBehaviour
 
     void ControllerGripAction()
     {
+        // Debug.Log("Controller Grip Action");
         Key gripKey = Key.G;
-        EnqueueKeyCommand(new KeyCommand(gripKey, true));
+        EnqueueKeyCommand(new KeyCommand(gripKey, true, 0.1f));
         EnqueueKeyCommand(new KeyCommand(gripKey, false));
     }
 
     void ControllerTriggerAction()
     {
+        // Debug.Log("Controller Trigger Action");
         Key triggerKey = Key.T;
-        EnqueueKeyCommand(new KeyCommand(triggerKey, true));
+        EnqueueKeyCommand(new KeyCommand(triggerKey, true, 0.1f));
         EnqueueKeyCommand(new KeyCommand(triggerKey, false));
     }
 
@@ -370,6 +462,10 @@ public class InteractoBot : MonoBehaviour
             // If object itself isn't interactable, check its children
             AddChildInteractables(interactable, type, interactionEvent.interactable, interactableObjects);
         }
+        // foreach (var interactable in interactableObjects)
+        // {
+        //     Debug.Log($"Interactable: {interactable.GetName()} ({interactable.GetObject().name})");
+        // }
         return interactableObjects;
     }
 
@@ -433,25 +529,11 @@ public class InteractoBot : MonoBehaviour
         EventTrigger[] uiTriggers = FindObjectsOfType<EventTrigger>();
         foreach (EventTrigger trigger in uiTriggers)
         {
-            // Create entry for pointer enter
-            // EventTrigger.Entry pointerEnterEntry = new EventTrigger.Entry();
-            // pointerEnterEntry.eventID = EventTriggerType.PointerEnter;
-            // pointerEnterEntry.callback.AddListener((data) => { OnPointerEnter((PointerEventData)data); });
-            // trigger.triggers.Add(pointerEnterEntry);
-
-            // // Create entry for pointer exit
-            // EventTrigger.Entry pointerExitEntry = new EventTrigger.Entry();
-            // pointerExitEntry.eventID = EventTriggerType.PointerExit;
-            // pointerExitEntry.callback.AddListener((data) => { OnPointerExit((PointerEventData)data); });
-            // trigger.triggers.Add(pointerExitEntry);
-
             // Create entry for pointer click
             EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
             pointerClickEntry.eventID = EventTriggerType.PointerClick;
             pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
             trigger.triggers.Add(pointerClickEntry);
-
-            // Debug.Log($"Registered UI listeners for: {trigger.gameObject.name}");
         }
     }
 
@@ -479,7 +561,7 @@ public class InteractoBot : MonoBehaviour
             }
             else
             {
-                Debug.Log("Not Interacted Interactable: " + obj.GetObject().name);
+                Debug.Log("Not Interacted Interactable: " + obj.GetName());
             }
         }
         return count;
@@ -529,66 +611,56 @@ public class InteractoBot : MonoBehaviour
         var tmp_dropdown = eventData.pointerEnter.GetComponentInParent<TMP_Dropdown>();
         if (button != null)
         {
-            Debug.Log("Button clicked: " + button.gameObject.name);
+            // Debug.Log("Button clicked: " + button.gameObject.name);
             SetObjectInteracted(button.gameObject.name);
         }
         else if (toggle != null)
         {
-            Debug.Log("Toggle clicked: " + toggle.gameObject.name);
+            // Debug.Log("Toggle clicked: " + toggle.gameObject.name);
             SetObjectInteracted(toggle.gameObject.name);
         }
         else if (slider != null)
         {
-            Debug.Log("Slider clicked: " + slider.gameObject.name);
+            // Debug.Log("Slider clicked: " + slider.gameObject.name);
             SetObjectInteracted(slider.gameObject.name);
         }
         else if (dropdown != null)
         {
-            Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
+            // Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
             SetObjectInteracted(dropdown.gameObject.name);
         }
         else if (tmp_dropdown != null)
         {
-            Debug.Log("TMP_Dropdown clicked: " + tmp_dropdown.gameObject.name);
+            // Debug.Log("TMP_Dropdown clicked: " + tmp_dropdown.gameObject.name);
             SetObjectInteracted(tmp_dropdown.gameObject.name);
         }
         else
         {
-            Debug.Log("Uncategorised UI clicked: " + eventData.pointerEnter.name);
+            // Debug.Log("Uncategorised UI clicked: " + eventData.pointerEnter.name);
             SetObjectInteracted(eventData.pointerEnter.name);
         }
     }
 
     /// <summary>
-    /// An example of getting the attributes of interactables for analysis/behaviour modelling, maybe useful, maybe not
+    /// Transition to a new state with a delay
     /// </summary>
-    private void GetComponentAttributes()
+    private IEnumerator TransitionToState(ExplorationState newState)
     {
-        GameObject blaster = GameObject.Find("Blaster").transform.parent.gameObject;
-        Debug.Log(blaster.GetComponent<XRGrabInteractable>());
-        var grabInteractable = blaster.GetComponent<XRGrabInteractable>();
-        if (grabInteractable != null)
-        {
-            // Get the activated event
-            var activatedEvent = grabInteractable.activated;
-            Debug.Log($"Blaster Activate Event: {activatedEvent}");
-            // You can also check if there are any listeners attached to this event
-            var hasListeners = activatedEvent.GetPersistentEventCount() > 0;
-            Debug.Log($"Blaster Activate Event has listeners: {hasListeners}");
-            var deactivatedEvent = grabInteractable.deactivated;
-            Debug.Log($"Blaster DeActivate Event: {deactivatedEvent}");
-            var dehasListeners = deactivatedEvent.GetPersistentEventCount() > 0;
-            Debug.Log($"Blaster DeActivate Event has listeners: {dehasListeners}");
-        }
-    }
+        // Wait for the specified delay
+        yield return new WaitForSeconds(stateTransitionDelay);
 
-    /// <summary>
-    /// Move the controller backward slightly for UI interaction
-    /// </summary>
-    void MoveBackwardForUI()
-    {
-        Key backwardKey = Key.S;
-        EnqueueKeyCommand(new KeyCommand(backwardKey, true, 0.2f));
-        EnqueueKeyCommand(new KeyCommand(backwardKey, false));
+        // Reset the action flags when transitioning to a new state
+        if (newState != ExplorationState.ThreeDInteraction)
+        {
+            hasPerformedGripAction = false;
+        }
+        if (newState != ExplorationState.TwoDInteraction)
+        {
+            hasPerformedTriggerAction = false;
+        }
+        // Transition to the new state
+        currentExplorationState = newState;
+        // Log the state transition
+        // Debug.Log($"Transitioning to state: {newState}");
     }
 }

@@ -2,21 +2,7 @@
     {
         "interactor": "XR Origin (XR Rig)",
         "condition": [],
-        "interactable": "Torus Interactable",
-        "type": "3d",
-        "event_type": "select"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "List Item Toggle",
-        "type": "2d",
-        "event_type": "activate"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "Cylinder Interactable",
+        "interactable": "Rotating Torus",
         "type": "3d",
         "event_type": "select"
     },
@@ -30,34 +16,6 @@
     {
         "interactor": "XR Origin (XR Rig)",
         "condition": [],
-        "interactable": "Teleport Anchor",
-        "type": "2d",
-        "event_type": "activate"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "Totem2",
-        "type": "3d",
-        "event_type": "select"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "Totem1",
-        "type": "3d",
-        "event_type": "select"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "Sphere Interactable",
-        "type": "3d",
-        "event_type": "select"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
         "interactable": "Text Poke Button Special",
         "type": "2d",
         "event_type": "activate"
@@ -65,16 +23,9 @@
     {
         "interactor": "XR Origin (XR Rig)",
         "condition": [],
-        "interactable": "Rotating Torus",
+        "interactable": "Cube Interactable",
         "type": "3d",
         "event_type": "select"
-    },
-    {
-        "interactor": "XR Origin (XR Rig)",
-        "condition": [],
-        "interactable": "List Item Button",
-        "type": "2d",
-        "event_type": "activate"
     },
     {
         "interactor": "XR Origin (XR Rig)",
@@ -86,7 +37,7 @@
     {
         "interactor": "XR Origin (XR Rig)",
         "condition": [],
-        "interactable": "List Item Slider",
+        "interactable": "List Item Button",
         "type": "2d",
         "event_type": "activate"
     },
@@ -114,7 +65,49 @@
     {
         "interactor": "XR Origin (XR Rig)",
         "condition": [],
-        "interactable": "Cube Interactable",
+        "interactable": "Torus Interactable",
+        "type": "3d",
+        "event_type": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Totem2",
+        "type": "3d",
+        "event_type": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Totem1",
+        "type": "3d",
+        "event_type": "select"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Slider",
+        "type": "2d",
+        "event_type": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Toggle",
+        "type": "2d",
+        "event_type": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "List Item Dropdown",
+        "type": "2d",
+        "event_type": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Cylinder Interactable",
         "type": "3d",
         "event_type": "select"
     },
@@ -133,5 +126,12 @@
         "interactable": "Blaster",
         "type": "3d",
         "event_type": "activate"
+    },
+    {
+        "interactor": "XR Origin (XR Rig)",
+        "condition": [],
+        "interactable": "Sphere Interactable",
+        "type": "3d",
+        "event_type": "select"
     }
 ]

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -10,7 +11,7 @@ using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.UI;
-
+using TMPro;
 
 public class InteractoBot : MonoBehaviour
 {
@@ -19,7 +20,7 @@ public class InteractoBot : MonoBehaviour
     public GameObject rightController;
     // Input device references
     private InputDevice simulatedControllerDevice;
-    private float gameSpeed = 5.0f; // May alter gameSpeed to speed up the test execution process
+    private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // private float interactionDelay = 0.008f; // The delay between interaction events
     // Movement parameters
     private float moveSpeed = 1.0f;
@@ -28,6 +29,7 @@ public class InteractoBot : MonoBehaviour
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
     private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
+    private float interactionOffset = 0.1f; // Small distance in front of the target for interaction
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -130,7 +132,20 @@ public class InteractoBot : MonoBehaviour
                 timeSinceLastUpdate = 0f;
                 // Controller Movement
                 Vector3 controllerCurrentPos = rightController.transform.position;
-                Vector3 controllerTargetPos = closestObject.transform.position;
+
+                // Calculate the target position with a small offset in front of the object
+                Vector3 controllerTargetPos;
+                if (closestInteractable.GetObjectType() == "2d")
+                {
+                    // For UI elements, position slightly in front along the z-axis
+                    controllerTargetPos = closestObject.transform.position + new Vector3(0, 0, interactionOffset);
+                }
+                else
+                {
+                    // For 3D objects, use the exact position
+                    controllerTargetPos = closestObject.transform.position;
+                }
+
                 Vector3 controllerWorldDirection = Utils.GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
                 if (Vector3.Distance(controllerCurrentPos, controllerTargetPos) > controllerMovementThreshold)
                 {
@@ -148,7 +163,7 @@ public class InteractoBot : MonoBehaviour
                     }
                     else if (closestInteractable.GetObjectType() == "2d")
                     {
-                        MoveBackwardForUI();
+                        // MoveBackwardForUI();
                         ControllerTriggerAction();
                     }
                     ResetControllerPosition();
@@ -341,35 +356,63 @@ public class InteractoBot : MonoBehaviour
 
     public List<InteractableObject> GetInteractableObjects()
     {
-        List<InteractionEvent> interactionEvents = Utils.GetInteractionEvents();
-        List<InteractableObject> interactableObjects = new List<InteractableObject>();
-        foreach (InteractionEvent interactionEvent in interactionEvents)
+        var interactionEvents = Utils.GetInteractionEvents();
+        var interactableObjects = new List<InteractableObject>();
+
+        foreach (var interactionEvent in interactionEvents)
         {
-            GameObject interactable = GameObject.Find(interactionEvent.interactable);
-            if (interactable == null)
+            var interactable = FindInteractableObject(interactionEvent.interactable);
+            if (interactable == null) continue;
+
+            var type = interactionEvent.type;
+            if (TryAddInteractable(interactable, type, interactionEvent.interactable, interactableObjects)) continue;
+
+            // If object itself isn't interactable, check its children
+            AddChildInteractables(interactable, type, interactionEvent.interactable, interactableObjects);
+        }
+        return interactableObjects;
+    }
+
+    private GameObject FindInteractableObject(string name)
+    {
+        var interactable = GameObject.Find(name);
+        if (interactable != null) return interactable;
+
+        return GameObject.FindObjectsOfType<GameObject>()
+            .FirstOrDefault(obj => obj.name.Contains(name));
+    }
+
+    private bool TryAddInteractable(GameObject obj, string type, string name, List<InteractableObject> interactables)
+    {
+        if (type == "2d" && obj.GetComponent<EventTrigger>() != null)
+        {
+            interactables.Add(new InteractableObject(name, obj, "2d"));
+            return true;
+        }
+        if (type == "3d" && obj.GetComponent<XRBaseInteractable>() != null)
+        {
+            interactables.Add(new InteractableObject(name, obj, "3d"));
+            return true;
+        }
+        return false;
+    }
+
+    private void AddChildInteractables(GameObject parent, string type, string name, List<InteractableObject> interactables)
+    {
+        if (type == "2d")
+        {
+            foreach (var trigger in parent.GetComponentsInChildren<EventTrigger>())
             {
-                // If exact match not found, search for objects containing the name
-                GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
-                foreach (GameObject obj in allObjects)
-                {
-                    if (obj.name.Contains(interactionEvent.interactable))
-                    {
-                        interactable = obj;
-                        break;
-                    }
-                }
-            }
-            if (interactable != null)
-            {
-                interactableObjects.Add(new InteractableObject(interactable, interactionEvent.type));
+                interactables.Add(new InteractableObject(name, trigger.gameObject, "2d"));
             }
         }
-        // foreach (GameObject interactable in interactableObjects)
-        // {
-        //     Debug.Log("Interactable: " + interactable.name);
-        // }
-        // Debug.Log("Number of Interactable Objects: " + interactableObjects.Count);
-        return interactableObjects;
+        else if (type == "3d")
+        {
+            foreach (var interactable in parent.GetComponentsInChildren<XRBaseInteractable>())
+            {
+                interactables.Add(new InteractableObject(name, interactable.gameObject, "3d"));
+            }
+        }
     }
 
     void RegisterListener()
@@ -416,32 +459,13 @@ public class InteractoBot : MonoBehaviour
     {
         foreach (var obj in interactableObjects)
         {
-            GameObject currentObj = obj.GetObject();
-            // Check the object itself and all its children recursively
-            if (CheckObjectAndChildren(currentObj, interactableName))
+            if (obj.GetObject().name == interactableName && !obj.GetInteracted())
             {
-                Debug.Log("Interacted: " + currentObj.name);
                 obj.SetInteracted(true);
-                return;
+                Debug.Log("Interacted: " + obj.GetName() + " " + obj.GetObject().name);
+                break;
             }
         }
-    }
-
-    private bool CheckObjectAndChildren(GameObject obj, string targetName)
-    {
-        if (obj.name == targetName)
-        {
-            return true;
-        }
-        // Check all children recursively
-        foreach (Transform child in obj.transform)
-        {
-            if (CheckObjectAndChildren(child.gameObject, targetName))
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     private int CountInteracted()
@@ -502,6 +526,7 @@ public class InteractoBot : MonoBehaviour
         var toggle = eventData.pointerEnter.GetComponentInParent<Toggle>();
         var slider = eventData.pointerEnter.GetComponentInParent<Slider>();
         var dropdown = eventData.pointerEnter.GetComponentInParent<Dropdown>();
+        var tmp_dropdown = eventData.pointerEnter.GetComponentInParent<TMP_Dropdown>();
         if (button != null)
         {
             Debug.Log("Button clicked: " + button.gameObject.name);
@@ -521,6 +546,11 @@ public class InteractoBot : MonoBehaviour
         {
             Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
             SetObjectInteracted(dropdown.gameObject.name);
+        }
+        else if (tmp_dropdown != null)
+        {
+            Debug.Log("TMP_Dropdown clicked: " + tmp_dropdown.gameObject.name);
+            SetObjectInteracted(tmp_dropdown.gameObject.name);
         }
         else
         {

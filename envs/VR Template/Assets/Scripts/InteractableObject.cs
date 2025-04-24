@@ -14,12 +14,23 @@ public class InteractableObject
   string type;
   string eventType;
   string condition;
-  public InteractableObject(GameObject go, string type)
+  public InteractableObject(string name, GameObject go, string type)
   {
+    this.name = name;
     this.interactable = go;
     this.type = type;
     this.visited = false;
     this.interacted = false;
+  }
+
+  public string GetName()
+  {
+    return this.name;
+  }
+
+  public void SetName(string name)
+  {
+    this.name = name;
   }
 
   public GameObject GetObject()

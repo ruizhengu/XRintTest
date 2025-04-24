@@ -51,7 +51,7 @@ public class InteractableIdentification
     if (r != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Triggerable: " + go.name);
-      interactables[go] = new InteractableObject(go, "2d");
+      interactables[go] = new InteractableObject(null, go, "2d");
 
       // EventTrigger.Entry entry = new EventTrigger.Entry();
       // entry.eventID = EventTriggerType.PointerClick;
@@ -66,7 +66,7 @@ public class InteractableIdentification
     if (xrInteractable != null && !interactables.ContainsKey(go))
     {
       // Debug.Log("Found Interactable: " + go.name);
-      interactables[go] = new InteractableObject(go, "3d");
+      interactables[go] = new InteractableObject(null, go, "3d");
     }
   }
 

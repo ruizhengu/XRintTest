@@ -95,7 +95,7 @@ public static class Utils
       }
       else if (xrInteractable != null && !interactables.ContainsKey(go))
       {
-        interactables[go] = new InteractableObject(go, "3d");
+        interactables[go] = new InteractableObject(null, go, "3d");
       }
     }
     return interactables;

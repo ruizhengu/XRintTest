@@ -103,10 +103,10 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         // Process the command queue
-        if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
-        {
-            StartCoroutine(ProcessKeyCommandQueue());
-        }
+        // if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
+        // {
+        //     StartCoroutine(ProcessKeyCommandQueue());
+        // }
         // Handle different exploration states
         switch (currentExplorationState)
         {
@@ -303,8 +303,9 @@ public class InteractoBot : MonoBehaviour
         if (key != Key.None)
         {
             // Enqueue key press and release
-            EnqueueKeyCommand(new KeyCommand(key, true));
-            EnqueueKeyCommand(new KeyCommand(key, false));
+            // EnqueueKeyCommand(new KeyCommand(key, true));
+            // EnqueueKeyCommand(new KeyCommand(key, false));
+            StartCoroutine(ExecuteKeyWithDuration(key, 0.1f));
             currentControllerState = targetState;
         }
     }
@@ -327,6 +328,19 @@ public class InteractoBot : MonoBehaviour
             yield return new WaitForSeconds(command.duration);
         }
         isProcessingKeyCommands = false;
+    }
+
+    IEnumerator ExecuteKeyWithDuration(Key key, float duration)
+    {
+        // Debug.Log($"Executing key: {key} for {duration} seconds");
+        var keyboard = InputSystem.GetDevice<Keyboard>();
+        if (keyboard == null) yield break;
+        // Press the key
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+        // Wait for the specified duration
+        yield return new WaitForSeconds(duration);
+        // Release the key
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState());
     }
 
     // Execute a single key command
@@ -375,22 +389,25 @@ public class InteractoBot : MonoBehaviour
         if (absZ > threshold)
         {
             Key zKey = z > 0 ? Key.W : Key.S;
-            EnqueueKeyCommand(new KeyCommand(zKey, true));
-            EnqueueKeyCommand(new KeyCommand(zKey, false));
+            // EnqueueKeyCommand(new KeyCommand(zKey, true));
+            // EnqueueKeyCommand(new KeyCommand(zKey, false));
+            StartCoroutine(ExecuteKeyWithDuration(zKey, 0.01f));
             return;
         }
         if (absX > threshold)
         {
             Key xKey = x > 0 ? Key.D : Key.A;
-            EnqueueKeyCommand(new KeyCommand(xKey, true));
-            EnqueueKeyCommand(new KeyCommand(xKey, false));
+            // EnqueueKeyCommand(new KeyCommand(xKey, true));
+            // EnqueueKeyCommand(new KeyCommand(xKey, false));
+            StartCoroutine(ExecuteKeyWithDuration(xKey, 0.01f));
             return;
         }
         if (absY > threshold)
         {
             Key yKey = y > 0 ? Key.E : Key.Q;
-            EnqueueKeyCommand(new KeyCommand(yKey, true));
-            EnqueueKeyCommand(new KeyCommand(yKey, false));
+            // EnqueueKeyCommand(new KeyCommand(yKey, true));
+            // EnqueueKeyCommand(new KeyCommand(yKey, false));
+            StartCoroutine(ExecuteKeyWithDuration(yKey, 0.01f));
             return;
         }
     }
@@ -401,24 +418,20 @@ public class InteractoBot : MonoBehaviour
     void ResetControllerPosition()
     {
         Key resetKey = Key.R;
-        EnqueueKeyCommand(new KeyCommand(resetKey, true));
-        EnqueueKeyCommand(new KeyCommand(resetKey, false));
+        StartCoroutine(ExecuteKeyWithDuration(resetKey, 0.1f));
     }
 
     void ControllerGripAction()
     {
         // Debug.Log("Controller Grip Action");
         Key gripKey = Key.G;
-        EnqueueKeyCommand(new KeyCommand(gripKey, true, 0.1f));
-        EnqueueKeyCommand(new KeyCommand(gripKey, false));
+        StartCoroutine(ExecuteKeyWithDuration(gripKey, 0.1f));
     }
 
     void ControllerTriggerAction()
     {
-        // Debug.Log("Controller Trigger Action");
         Key triggerKey = Key.T;
-        EnqueueKeyCommand(new KeyCommand(triggerKey, true, 0.1f));
-        EnqueueKeyCommand(new KeyCommand(triggerKey, false));
+        StartCoroutine(ExecuteKeyWithDuration(triggerKey, 0.1f));
     }
 
     /// <summary>

@@ -114,4 +114,25 @@ public static class Utils
       return interactionEvents;
     }
   }
+
+  public static void ExecuteKey(Key key)
+  {
+    Debug.Log("Executing key: " + key);
+    var keyboard = InputSystem.GetDevice<Keyboard>();
+    if (keyboard == null) return;
+    InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+  }
+
+
+
+  public static void ExecuteKeyImmediate(Key key)
+  {
+    var keyboard = InputSystem.GetDevice<Keyboard>();
+    if (keyboard == null) return;
+
+    // Press and release immediately
+    InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+  }
 }

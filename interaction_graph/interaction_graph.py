@@ -360,7 +360,51 @@ class InteractionGraph:
         default_ui_interaction_layer = -2
         processed_names = {obj.name for obj in self.interactables} | {obj.name for obj in self.interactors}
 
-        # Scene UI objects
+        def process_ui_prefab(prefab, processed_prefabs):
+            """Process a UI prefab and its nested prefabs"""
+            if prefab in processed_prefabs:
+                return
+            processed_prefabs.add(prefab)
+
+            # Load the prefab document
+            prefab_doc = UnityDocument.load_yaml(prefab.file)
+
+            # Get all script GUIDs from the prefab
+            script_guids = {script.m_Script.get("guid") for script in
+                            prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
+
+            # Check for UI interactions in this prefab
+            for interaction in self.interaction_events_ui:
+                if interaction.guid not in script_guids:
+                    continue
+                if interaction.role == InteractionRole.INTERACTABLE:
+                    name = self.get_top_level_prefab_name(prefab)
+                    if not name or name in processed_names:
+                        continue
+                    ui = Interactable(
+                        name=name,
+                        script=interaction.file,
+                        type=InteractableType.TWO_D,
+                        event=interaction.event,
+                        layer=default_ui_interaction_layer
+                    )
+                    self.interactables.add(ui)
+                    processed_names.add(name)
+
+            # Process nested prefabs
+            for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
+                nested_guid = nested_entry.m_SourcePrefab.get("guid")
+                if nested_guid and nested_guid in self.asset_prefab_guids:
+                    nested_prefab = Prefab(
+                        name=utils.get_prefab_instance_name(prefab_doc, nested_entry.anchor),
+                        guid=nested_guid,
+                        file=self.asset_prefab_guids[nested_guid].parent / self.asset_prefab_guids[nested_guid].stem,
+                        type=PrefabType.SCENE,
+                        interaction_layer=default_ui_interaction_layer
+                    )
+                    process_ui_prefab(nested_prefab, processed_prefabs)
+
+        # Process scene UI objects
         for script in self.scene_scripts:
             linked_object = script.m_GameObject["fileID"]
             name = utils.get_object_name(self.scene_doc, linked_object)
@@ -382,31 +426,12 @@ class InteractionGraph:
                     self.interactables.add(ui)
                     processed_names.add(name)
 
-        # Prefab UI objects
+        # Process prefab UI objects
         processed_prefabs = set()
         for prefab_source in self.get_scene_prefabs():
             if prefab_source in processed_prefabs:
                 continue
-            processed_prefabs.add(prefab_source)
-            prefab_doc = UnityDocument.load_yaml(prefab_source.file)
-            script_guids = {script.m_Script.get("guid") for script in
-                            prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
-            for interaction in self.interaction_events_ui:
-                if interaction.guid not in script_guids:
-                    continue
-                if interaction.role == InteractionRole.INTERACTABLE:
-                    name = self.get_top_level_prefab_name(prefab_source)
-                    if not name or name in processed_names:
-                        continue
-                    ui = Interactable(
-                        name=name,
-                        script=interaction.file,
-                        type=InteractableType.TWO_D,
-                        event=interaction.event,
-                        layer=default_ui_interaction_layer
-                    )
-                    self.interactables.add(ui)
-                    processed_names.add(name)
+            process_ui_prefab(prefab_source, processed_prefabs)
 
     def build_graph(self):
         """Build the interaction graph"""

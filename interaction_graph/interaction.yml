@@ -17,3 +17,4 @@ uis:
     - Slider
     - Toggle
     - Dropdown
+    - TMP_Dropdown

@@ -9,6 +9,7 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.UI;
 
 
 public class InteractoBot : MonoBehaviour
@@ -18,15 +19,15 @@ public class InteractoBot : MonoBehaviour
     public GameObject rightController;
     // Input device references
     private InputDevice simulatedControllerDevice;
-    private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
-    private float interactionDelay = 0.008f; // The delay between interaction events
+    private float gameSpeed = 5.0f; // May alter gameSpeed to speed up the test execution process
+    // private float interactionDelay = 0.008f; // The delay between interaction events
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.04f; // The distance of controller movement to continue interaction
+    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -44,10 +45,12 @@ public class InteractoBot : MonoBehaviour
     {
         public Key key;
         public bool press; // true for press, false for release
-        public KeyCommand(Key key, bool press)
+        public float duration; // The duration of the key press
+        public KeyCommand(Key key, bool press, float duration = 0.001f)
         {
             this.key = key;
             this.press = press;
+            this.duration = duration;
         }
     }
 
@@ -85,6 +88,7 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         InteractableObject closestInteractable = GetCloestInteractable();
+        // Debug.Log("Closest Interactable: " + closestInteractable.GetObject().name);
         rightController = GameObject.Find("Right Controller");
         if (rightController == null)
         {
@@ -144,31 +148,15 @@ public class InteractoBot : MonoBehaviour
                     }
                     else if (closestInteractable.GetObjectType() == "2d")
                     {
-                        // TODO: for UIs, go to the position, and go backward to forward to trigger and reset the UI element
+                        MoveBackwardForUI();
                         ControllerTriggerAction();
                     }
-                    // Wait for grip success confirmation
-                    // while (gripCheckTimer < gripCheckTimeout && !gripSuccess)
-                    // {
-                    //     gripCheckTimer += Time.deltaTime;
-                    //     // return;
-                    // }
-
-                    // if (gripSuccess)
-                    // {
-                    //     Debug.Log("Grip action successful - object selected");
-                    // }
-                    // else
-                    // {
-                    //     Debug.Log("Grip action failed - no object selected");
-                    // }
                     ResetControllerPosition();
                 }
             }
         }
         else
         {
-            // TODO: add report (success rate)
             Debug.Log("Test End");
             Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
         }
@@ -231,7 +219,7 @@ public class InteractoBot : MonoBehaviour
             var command = keyCommandQueue.Dequeue();
             ExecuteKeyCommand(command);
             // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(interactionDelay);
+            yield return new WaitForSeconds(command.duration);
         }
         isProcessingKeyCommands = false;
     }
@@ -314,36 +302,15 @@ public class InteractoBot : MonoBehaviour
 
     void ControllerGripAction()
     {
-        // StartCoroutine(HoldGripKey());
         Key gripKey = Key.G;
         EnqueueKeyCommand(new KeyCommand(gripKey, true));
-        EnqueueKeyCommand(new KeyCommand(gripKey, false));
-    }
-
-    IEnumerator HoldGripKey()
-    {
-        Key gripKey = Key.G;
-        // Press the key
-        EnqueueKeyCommand(new KeyCommand(gripKey, true));
-        // Hold for a short duration (100ms)
-        yield return new WaitForSeconds(0.1f);
-        // Release the key
         EnqueueKeyCommand(new KeyCommand(gripKey, false));
     }
 
     void ControllerTriggerAction()
     {
-        StartCoroutine(HoldTriggerKey());
-    }
-
-    IEnumerator HoldTriggerKey()
-    {
         Key triggerKey = Key.T;
-        // Press the key
         EnqueueKeyCommand(new KeyCommand(triggerKey, true));
-        // Hold for a short duration (100ms)
-        yield return new WaitForSeconds(0.1f);
-        // Release the key
         EnqueueKeyCommand(new KeyCommand(triggerKey, false));
     }
 
@@ -447,16 +414,34 @@ public class InteractoBot : MonoBehaviour
 
     void SetObjectInteracted(string interactableName)
     {
-        // InteractableObject objectToRemove = null;
         foreach (var obj in interactableObjects)
         {
-            if (obj.GetObject().name == interactableName)
+            GameObject currentObj = obj.GetObject();
+            // Check the object itself and all its children recursively
+            if (CheckObjectAndChildren(currentObj, interactableName))
             {
+                Debug.Log("Interacted: " + currentObj.name);
                 obj.SetInteracted(true);
-                // Debug.Log($"Inteacted: {interactableName} set to {entry.Value.GetInteracted()}");
-                break;
+                return;
             }
         }
+    }
+
+    private bool CheckObjectAndChildren(GameObject obj, string targetName)
+    {
+        if (obj.name == targetName)
+        {
+            return true;
+        }
+        // Check all children recursively
+        foreach (Transform child in obj.transform)
+        {
+            if (CheckObjectAndChildren(child.gameObject, targetName))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int CountInteracted()
@@ -486,7 +471,7 @@ public class InteractoBot : MonoBehaviour
     private void OnSelectExited(SelectExitEventArgs args)
     {
         var xrInteractable = args.interactableObject;
-        Debug.Log("OnSelectExited: " + xrInteractable.transform.name);
+        // Debug.Log("OnSelectExited: " + xrInteractable.transform.name);
     }
 
     private void OnActivated(ActivateEventArgs args)
@@ -498,7 +483,7 @@ public class InteractoBot : MonoBehaviour
     private void OnDeactivated(DeactivateEventArgs args)
     {
         var interactable = args.interactableObject;
-        Debug.Log($"OnDeactivated: {interactable.transform.name}");
+        // Debug.Log($"OnDeactivated: {interactable.transform.name}");
     }
 
     private void OnPointerEnter(PointerEventData eventData)
@@ -513,9 +498,35 @@ public class InteractoBot : MonoBehaviour
 
     private void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"Pointer clicked UI: {eventData.pointerEnter.name}");
-        SetObjectInteracted(eventData.pointerEnter.name);
-        // TODO: deal with UI elements
+        var button = eventData.pointerEnter.GetComponentInParent<Button>();
+        var toggle = eventData.pointerEnter.GetComponentInParent<Toggle>();
+        var slider = eventData.pointerEnter.GetComponentInParent<Slider>();
+        var dropdown = eventData.pointerEnter.GetComponentInParent<Dropdown>();
+        if (button != null)
+        {
+            Debug.Log("Button clicked: " + button.gameObject.name);
+            SetObjectInteracted(button.gameObject.name);
+        }
+        else if (toggle != null)
+        {
+            Debug.Log("Toggle clicked: " + toggle.gameObject.name);
+            SetObjectInteracted(toggle.gameObject.name);
+        }
+        else if (slider != null)
+        {
+            Debug.Log("Slider clicked: " + slider.gameObject.name);
+            SetObjectInteracted(slider.gameObject.name);
+        }
+        else if (dropdown != null)
+        {
+            Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
+            SetObjectInteracted(dropdown.gameObject.name);
+        }
+        else
+        {
+            Debug.Log("Uncategorised UI clicked: " + eventData.pointerEnter.name);
+            SetObjectInteracted(eventData.pointerEnter.name);
+        }
     }
 
     /// <summary>
@@ -539,5 +550,15 @@ public class InteractoBot : MonoBehaviour
             var dehasListeners = deactivatedEvent.GetPersistentEventCount() > 0;
             Debug.Log($"Blaster DeActivate Event has listeners: {dehasListeners}");
         }
+    }
+
+    /// <summary>
+    /// Move the controller backward slightly for UI interaction
+    /// </summary>
+    void MoveBackwardForUI()
+    {
+        Key backwardKey = Key.S;
+        EnqueueKeyCommand(new KeyCommand(backwardKey, true, 0.2f));
+        EnqueueKeyCommand(new KeyCommand(backwardKey, false));
     }
 }

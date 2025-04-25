@@ -21,7 +21,6 @@ public class InteractoBot : MonoBehaviour
     // Input device references
     private InputDevice simulatedControllerDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
-    // private float interactionDelay = 0.008f; // The delay between interaction events
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
@@ -32,6 +31,16 @@ public class InteractoBot : MonoBehaviour
     private float interactionOffset = 0.1f; // Small distance in front of the target for interaction
     private float stateTransitionDelay = 0.1f; // Delay between state transitions
     private bool isControllerMoving = false; // Flag to track if controller is currently moving
+    private ControllerState currentControllerState = ControllerState.None; // Default state
+    private ExplorationState currentExplorationState = ExplorationState.Navigation; // Default state
+    private bool isMovedController = false; // Track if controller has been moved
+    private float lastInteractionTime = 0f;
+    private float interactionCooldown = 0.2f; // Cooldown period in seconds
+    private int triggerActionCount = 0;
+    private string current3DInteractionPattern = ""; // Store the current 3D interaction pattern
+    private bool isGripHeld = false; // Track if grip is currently held
+    private int gripActionCount = 0; // Track number of grip actions
+    private int combinedActionCount = 0; // Track number of combined actions
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -48,33 +57,6 @@ public class InteractoBot : MonoBehaviour
         ThreeDInteraction,
         TwoDInteraction
     }
-    private ControllerState currentControllerState = ControllerState.None; // Default state
-    private ExplorationState currentExplorationState = ExplorationState.Navigation; // Default state
-    // Queue for processing movement commands one at a time
-    private Queue<KeyCommand> keyCommandQueue = new Queue<KeyCommand>();
-    private bool isProcessingKeyCommands = false;
-    // Struct to store key commands
-    private struct KeyCommand
-    {
-        public Key key;
-        public bool press; // true for press, false for release
-        public float duration; // The duration of the key press
-        public KeyCommand(Key key, bool press, float duration = 0.01f)
-        {
-            this.key = key;
-            this.press = press;
-            this.duration = duration;
-        }
-    }
-    private bool hasPerformed3DAction = false; // If 3d interaction has been performed
-    private bool hasPerformed2DAction = false; // If UI interaction has been performed
-    private float lastInteractionTime = 0f;
-    private float interactionCooldown = 0.2f; // Cooldown period in seconds
-    private int triggerActionCount = 0;
-    private string current3DInteractionPattern = ""; // Store the current 3D interaction pattern
-    private bool isGripHeld = false; // Track if grip is currently held
-    private int gripActionCount = 0; // Track number of grip actions
-    private int combinedActionCount = 0; // Track number of combined actions
 
     void Start()
     {
@@ -95,7 +77,6 @@ public class InteractoBot : MonoBehaviour
             if (device.name == "XRSimulatedController")
             {
                 simulatedControllerDevice = device;
-                // Debug.Log("Found simulated left controller: " + device.name);
                 break;
             }
             // TODO: could check what does "XRSimulatedController1" do
@@ -109,7 +90,6 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
-
         // Handle different exploration states
         switch (currentExplorationState)
         {
@@ -218,26 +198,19 @@ public class InteractoBot : MonoBehaviour
             }
             else
             {
-                // Only proceed if the controller has stopped moving
-                if (isControllerMoving)
+                if (isControllerMoving) // Only proceed if the controller has stopped moving
                 {
-                    // Wait for the command queue to be empty before proceeding
-                    if (keyCommandQueue.Count == 0 && !isProcessingKeyCommands)
+                    isControllerMoving = false;
+                    closestInteractable.SetVisited(true);
+                    var events = closestInteractable.GetEvents();
+                    current3DInteractionPattern = string.Join(",", events);
+                    if (closestInteractable.GetObjectType() == "3d")
                     {
-                        isControllerMoving = false;
-                        closestInteractable.SetVisited(true);
-
-                        if (closestInteractable.GetObjectType() == "3d")
-                        {
-                            // Get the interaction pattern from the interactable's events
-                            var events = closestInteractable.GetEvents();
-                            current3DInteractionPattern = string.Join(",", events);
-                            StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
-                        }
-                        else if (closestInteractable.GetObjectType() == "2d")
-                        {
-                            StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
-                        }
+                        StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
+                    }
+                    else if (closestInteractable.GetObjectType() == "2d")
+                    {
+                        StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
                     }
                 }
             }
@@ -249,28 +222,24 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void ThreeDInteraction()
     {
-        if (!hasPerformed3DAction)
+        // Grip and trigger action
+        if (current3DInteractionPattern.Contains("select") && current3DInteractionPattern.Contains("activate"))
         {
-            // Use the stored interaction pattern to determine the action
-            if (current3DInteractionPattern.Contains("select") && current3DInteractionPattern.Contains("activate"))
+            if (!isGripHeld && gripActionCount == 0 && combinedActionCount == 0)
             {
-                // Start holding grip only if not already held and no actions performed
-                if (!isGripHeld && gripActionCount == 0 && combinedActionCount == 0)
-                {
-                    StartCoroutine(HoldGripAndTrigger());
-                }
+                StartCoroutine(HoldGripAndTrigger());
             }
-            else if (current3DInteractionPattern.Contains("select"))
+        }
+        // Normal grip action
+        else if (current3DInteractionPattern.Contains("select"))
+        {
+            if (gripActionCount < 1)
             {
-                if (gripActionCount < 1)
+                ControllerGripAction();
+                gripActionCount++;
+                if (gripActionCount >= 1)
                 {
-                    ControllerGripAction();
-                    gripActionCount++;
-                    if (gripActionCount >= 1)
-                    {
-                        hasPerformed3DAction = true;
-                        StartCoroutine(TransitionToState(ExplorationState.Navigation));
-                    }
+                    StartCoroutine(TransitionToState(ExplorationState.Navigation));
                 }
             }
         }
@@ -278,7 +247,7 @@ public class InteractoBot : MonoBehaviour
 
     private IEnumerator HoldGripAndTrigger()
     {
-        if (isGripHeld || hasPerformed3DAction) yield break;
+        if (isGripHeld) yield break;
         isGripHeld = true;
         var keyboard = InputSystem.GetDevice<Keyboard>();
         if (keyboard == null) yield break;
@@ -307,7 +276,6 @@ public class InteractoBot : MonoBehaviour
             yield return new WaitForSeconds(0.5f);
             InputSystem.QueueStateEvent(keyboard, new KeyboardState());
             isGripHeld = false;
-            hasPerformed3DAction = true;
             StartCoroutine(TransitionToState(ExplorationState.Navigation));
         }
     }
@@ -343,7 +311,6 @@ public class InteractoBot : MonoBehaviour
     {
         if (currentControllerState == targetState)
             return;
-        // Determine which key to press to get to the desired state
         Key key = Key.None;
         switch (targetState)
         {
@@ -353,47 +320,12 @@ public class InteractoBot : MonoBehaviour
             case ControllerState.RightController:
                 key = Key.RightBracket;
                 break;
-                // case ControllerState.Both:
-                //     // Press both keys simultaneously (handled specially)
-                //     EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, true));
-                //     EnqueueKeyCommand(new KeyCommand(Key.RightBracket, true));
-                //     EnqueueKeyCommand(new KeyCommand(Key.LeftBracket, false));
-                //     EnqueueKeyCommand(new KeyCommand(Key.RightBracket, false));
-                //     currentControllerState = targetState;
-                //     return;
-                // case ControllerState.HMD:
-                //     key = Key.Digit0;
-                //     break;
         }
-        // Debug.Log("Key: " + key);
         if (key != Key.None)
         {
-            // Enqueue key press and release
-            // EnqueueKeyCommand(new KeyCommand(key, true));
-            // EnqueueKeyCommand(new KeyCommand(key, false));
             StartCoroutine(ExecuteKeyWithDuration(key, 0.1f));
             currentControllerState = targetState;
         }
-    }
-
-    // Add a key command to the queue
-    void EnqueueKeyCommand(KeyCommand command)
-    {
-        keyCommandQueue.Enqueue(command);
-    }
-
-    // Process key commands from the queue one at a time
-    IEnumerator ProcessKeyCommandQueue()
-    {
-        isProcessingKeyCommands = true;
-        while (keyCommandQueue.Count > 0)
-        {
-            var command = keyCommandQueue.Dequeue();
-            ExecuteKeyCommand(command);
-            // Small delay between commands (granularity of movement)
-            yield return new WaitForSeconds(command.duration);
-        }
-        isProcessingKeyCommands = false;
     }
 
     IEnumerator ExecuteKeyWithDuration(Key key, float duration)
@@ -407,21 +339,6 @@ public class InteractoBot : MonoBehaviour
         yield return new WaitForSeconds(duration);
         // Release the key
         InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-    }
-
-    // Execute a single key command
-    void ExecuteKeyCommand(KeyCommand command)
-    {
-        var keyboard = InputSystem.GetDevice<Keyboard>();
-        if (keyboard == null) return;
-        if (command.press) // Pressing the key
-        {
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(command.key));
-        }
-        else // Releasing the key
-        {
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-        }
     }
 
     /// <summary>
@@ -447,6 +364,7 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     void EnqueueMovementKeys(float x, float y, float z)
     {
+        if (isMovedController) return;
         float threshold = controllerMovementThreshold;
         float absX = Mathf.Abs(x);
         float absY = Mathf.Abs(y);
@@ -455,27 +373,22 @@ public class InteractoBot : MonoBehaviour
         if (absZ > threshold)
         {
             Key zKey = z > 0 ? Key.W : Key.S;
-            // EnqueueKeyCommand(new KeyCommand(zKey, true));
-            // EnqueueKeyCommand(new KeyCommand(zKey, false));
             StartCoroutine(ExecuteKeyWithDuration(zKey, 0.01f));
             return;
         }
         if (absX > threshold)
         {
             Key xKey = x > 0 ? Key.D : Key.A;
-            // EnqueueKeyCommand(new KeyCommand(xKey, true));
-            // EnqueueKeyCommand(new KeyCommand(xKey, false));
             StartCoroutine(ExecuteKeyWithDuration(xKey, 0.01f));
             return;
         }
         if (absY > threshold)
         {
             Key yKey = y > 0 ? Key.E : Key.Q;
-            // EnqueueKeyCommand(new KeyCommand(yKey, true));
-            // EnqueueKeyCommand(new KeyCommand(yKey, false));
             StartCoroutine(ExecuteKeyWithDuration(yKey, 0.01f));
             return;
         }
+        isMovedController = true;
     }
 
     /// <summary>
@@ -662,11 +575,9 @@ public class InteractoBot : MonoBehaviour
     {
         // Wait for the specified delay
         yield return new WaitForSeconds(stateTransitionDelay);
-
         // Reset the action flags when transitioning to a new state
         if (newState != ExplorationState.ThreeDInteraction)
         {
-            hasPerformed3DAction = false;
             current3DInteractionPattern = ""; // Clear the interaction pattern when leaving 3D state
             isGripHeld = false; // Ensure grip is released when leaving state
             gripActionCount = 0; // Reset grip action count
@@ -674,12 +585,8 @@ public class InteractoBot : MonoBehaviour
         }
         if (newState != ExplorationState.TwoDInteraction)
         {
-            hasPerformed2DAction = false;
             triggerActionCount = 0; // Reset trigger action count when leaving 2D interaction state
         }
-        // Transition to the new state
         currentExplorationState = newState;
-        // Log the state transition
-        // Debug.Log($"Transitioning to state: {newState}");
     }
 }

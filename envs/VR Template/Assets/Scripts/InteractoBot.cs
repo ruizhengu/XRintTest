@@ -73,6 +73,8 @@ public class InteractoBot : MonoBehaviour
     private int triggerActionCount = 0;
     private string current3DInteractionPattern = ""; // Store the current 3D interaction pattern
     private bool isGripHeld = false; // Track if grip is currently held
+    private int gripActionCount = 0; // Track number of grip actions
+    private int combinedActionCount = 0; // Track number of combined actions
 
     void Start()
     {
@@ -93,7 +95,7 @@ public class InteractoBot : MonoBehaviour
             if (device.name == "XRSimulatedController")
             {
                 simulatedControllerDevice = device;
-                Debug.Log("Found simulated left controller: " + device.name);
+                // Debug.Log("Found simulated left controller: " + device.name);
                 break;
             }
             // TODO: could check what does "XRSimulatedController1" do
@@ -252,50 +254,62 @@ public class InteractoBot : MonoBehaviour
             // Use the stored interaction pattern to determine the action
             if (current3DInteractionPattern.Contains("select") && current3DInteractionPattern.Contains("activate"))
             {
-                // Start holding grip
-                if (!isGripHeld)
+                // Start holding grip only if not already held and no actions performed
+                if (!isGripHeld && gripActionCount == 0 && combinedActionCount == 0)
                 {
                     StartCoroutine(HoldGripAndTrigger());
                 }
             }
             else if (current3DInteractionPattern.Contains("select"))
             {
-                ControllerGripAction();
-                hasPerformed3DAction = true;
-                StartCoroutine(TransitionToState(ExplorationState.Navigation));
+                if (gripActionCount < 1)
+                {
+                    ControllerGripAction();
+                    gripActionCount++;
+                    if (gripActionCount >= 1)
+                    {
+                        hasPerformed3DAction = true;
+                        StartCoroutine(TransitionToState(ExplorationState.Navigation));
+                    }
+                }
             }
         }
     }
 
     private IEnumerator HoldGripAndTrigger()
     {
+        if (isGripHeld || hasPerformed3DAction) yield break;
         isGripHeld = true;
-
-        // Hold grip
         var keyboard = InputSystem.GetDevice<Keyboard>();
-        if (keyboard != null)
+        if (keyboard == null) yield break;
+        // Hold grip
+        if (gripActionCount == 0)
         {
+            yield return new WaitForSeconds(0.5f); // Wait a moment to ensure grip is registered
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.G));
+            gripActionCount++;
+            yield return new WaitForSeconds(0.5f);
         }
-
-        // Wait a short moment before triggering
-        yield return new WaitForSeconds(0.1f);
-
         // Execute trigger action while grip is held
-        ControllerTriggerAction();
-
-        // Wait a short moment before releasing grip
-        yield return new WaitForSeconds(0.1f);
-
-        // Release grip
-        if (keyboard != null)
+        if (gripActionCount > 0 && combinedActionCount == 0)
         {
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            yield return new WaitForSeconds(0.5f);
+            Key[] keys = { Key.T, Key.G };
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(keys));
+            combinedActionCount++;
+            yield return new WaitForSeconds(0.5f);
         }
-
-        isGripHeld = false;
-        hasPerformed3DAction = true;
-        StartCoroutine(TransitionToState(ExplorationState.Navigation));
+        // Keep grip held after trigger
+        if (gripActionCount > 0 && combinedActionCount > 0)
+        {
+            yield return new WaitForSeconds(0.5f);
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.G));
+            yield return new WaitForSeconds(0.5f);
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            isGripHeld = false;
+            hasPerformed3DAction = true;
+            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+        }
     }
 
     /// <summary>
@@ -655,6 +669,8 @@ public class InteractoBot : MonoBehaviour
             hasPerformed3DAction = false;
             current3DInteractionPattern = ""; // Clear the interaction pattern when leaving 3D state
             isGripHeld = false; // Ensure grip is released when leaving state
+            gripActionCount = 0; // Reset grip action count
+            combinedActionCount = 0; // Reset combined action count
         }
         if (newState != ExplorationState.TwoDInteraction)
         {

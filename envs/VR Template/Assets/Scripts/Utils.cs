@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using SimpleJSON;
 using Newtonsoft.Json;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using System.Linq;
 
 
 [Serializable]
@@ -91,11 +93,11 @@ public static class Utils
 
       if (trigger != null && !interactables.ContainsKey(go))
       {
-        // interactables[go] = new InteractableObject(go, "2d");
+        interactables[go] = new InteractableObject(null, go, "2d", new List<string>());
       }
       else if (xrInteractable != null && !interactables.ContainsKey(go))
       {
-        interactables[go] = new InteractableObject(null, go, "3d");
+        interactables[go] = new InteractableObject(null, go, "3d", new List<string>());
       }
     }
     return interactables;
@@ -124,8 +126,6 @@ public static class Utils
     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
   }
 
-
-
   public static void ExecuteKeyImmediate(Key key)
   {
     var keyboard = InputSystem.GetDevice<Keyboard>();
@@ -134,5 +134,96 @@ public static class Utils
     // Press and release immediately
     InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
     InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+  }
+
+  public static List<InteractableObject> GetInteractableObjects()
+  {
+    var interactionEvents = GetInteractionEvents();
+    var interactableObjects = new List<InteractableObject>();
+    var interactableEventTypes = new Dictionary<string, HashSet<string>>();
+
+    // First pass: collect all event types for each interactable
+    foreach (var interactionEvent in interactionEvents)
+    {
+      if (!interactableEventTypes.ContainsKey(interactionEvent.interactable))
+      {
+        interactableEventTypes[interactionEvent.interactable] = new HashSet<string>();
+      }
+      interactableEventTypes[interactionEvent.interactable].Add(interactionEvent.event_type);
+    }
+
+    // Second pass: create InteractableObject instances with combined event types
+    foreach (var interactionEvent in interactionEvents)
+    {
+      var interactable = FindInteractableObject(interactionEvent.interactable);
+      if (interactable == null) continue;
+
+      var type = interactionEvent.type;
+      var eventTypes = interactableEventTypes[interactionEvent.interactable];
+
+      // Check if this interactable has both select and activate events
+      bool hasSelect = eventTypes.Contains("select");
+      bool hasActivate = eventTypes.Contains("activate");
+      bool hasSelectCondition = interactionEvent.condition != null && interactionEvent.condition.Contains("select");
+
+      // If it has both select and activate with select condition, combine them
+      if (hasSelect && hasActivate && hasSelectCondition)
+      {
+        if (TryAddInteractable(interactable, type, interactionEvent.interactable, interactableObjects, new List<string> { "select", "activate" })) continue;
+      }
+      else
+      {
+        if (TryAddInteractable(interactable, type, interactionEvent.interactable, interactableObjects, new List<string> { interactionEvent.event_type })) continue;
+      }
+      // If object itself isn't interactable, check its children
+      AddChildInteractables(interactable, type, interactionEvent.interactable, interactableObjects, eventTypes);
+    }
+    foreach (var interactable in interactableObjects)
+    {
+      Debug.Log($"Interactable: {interactable.GetName()} <{string.Join(", ", interactable.GetEvents())}> ({interactable.GetObject().name})");
+    }
+    return interactableObjects;
+  }
+
+  private static GameObject FindInteractableObject(string name)
+  {
+    var interactable = GameObject.Find(name);
+    if (interactable != null) return interactable;
+
+    return GameObject.FindObjectsOfType<GameObject>()
+        .FirstOrDefault(obj => obj.name.Contains(name));
+  }
+
+  private static bool TryAddInteractable(GameObject obj, string type, string name, List<InteractableObject> interactables, List<string> eventTypes)
+  {
+    if (type == "2d" && obj.GetComponent<EventTrigger>() != null)
+    {
+      interactables.Add(new InteractableObject(name, obj, "2d", eventTypes));
+      return true;
+    }
+    if (type == "3d" && obj.GetComponent<XRBaseInteractable>() != null)
+    {
+      interactables.Add(new InteractableObject(name, obj, "3d", eventTypes));
+      return true;
+    }
+    return false;
+  }
+
+  private static void AddChildInteractables(GameObject parent, string type, string name, List<InteractableObject> interactables, HashSet<string> eventTypes)
+  {
+    if (type == "2d")
+    {
+      foreach (var trigger in parent.GetComponentsInChildren<EventTrigger>())
+      {
+        interactables.Add(new InteractableObject(name, trigger.gameObject, "2d", new List<string>(eventTypes)));
+      }
+    }
+    else if (type == "3d")
+    {
+      foreach (var interactable in parent.GetComponentsInChildren<XRBaseInteractable>())
+      {
+        interactables.Add(new InteractableObject(name, interactable.gameObject, "3d", new List<string>(eventTypes)));
+      }
+    }
   }
 }

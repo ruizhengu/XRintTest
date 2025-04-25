@@ -74,7 +74,7 @@ public class InteractoBot : MonoBehaviour
 
     void Start()
     {
-        interactableObjects = GetInteractableObjects();
+        interactableObjects = Utils.GetInteractableObjects();
         interactionCount = interactableObjects.Count;
         RegisterListener(); // Register listeners for interactables and UIs
         FindSimulatedDevices(); // Find the simulated devices
@@ -105,11 +105,7 @@ public class InteractoBot : MonoBehaviour
     void Update()
     {
         Time.timeScale = gameSpeed;
-        // Process the command queue
-        // if (!isProcessingKeyCommands && keyCommandQueue.Count > 0)
-        // {
-        //     StartCoroutine(ProcessKeyCommandQueue());
-        // }
+
         // Handle different exploration states
         switch (currentExplorationState)
         {
@@ -470,71 +466,6 @@ public class InteractoBot : MonoBehaviour
             }
         }
         return closest;
-    }
-
-    public List<InteractableObject> GetInteractableObjects()
-    {
-        var interactionEvents = Utils.GetInteractionEvents();
-        var interactableObjects = new List<InteractableObject>();
-
-        foreach (var interactionEvent in interactionEvents)
-        {
-            var interactable = FindInteractableObject(interactionEvent.interactable);
-            if (interactable == null) continue;
-
-            var type = interactionEvent.type;
-            if (TryAddInteractable(interactable, type, interactionEvent.interactable, interactableObjects)) continue;
-
-            // If object itself isn't interactable, check its children
-            AddChildInteractables(interactable, type, interactionEvent.interactable, interactableObjects);
-        }
-        // foreach (var interactable in interactableObjects)
-        // {
-        //     Debug.Log($"Interactable: {interactable.GetName()} ({interactable.GetObject().name})");
-        // }
-        return interactableObjects;
-    }
-
-    private GameObject FindInteractableObject(string name)
-    {
-        var interactable = GameObject.Find(name);
-        if (interactable != null) return interactable;
-
-        return GameObject.FindObjectsOfType<GameObject>()
-            .FirstOrDefault(obj => obj.name.Contains(name));
-    }
-
-    private bool TryAddInteractable(GameObject obj, string type, string name, List<InteractableObject> interactables)
-    {
-        if (type == "2d" && obj.GetComponent<EventTrigger>() != null)
-        {
-            interactables.Add(new InteractableObject(name, obj, "2d"));
-            return true;
-        }
-        if (type == "3d" && obj.GetComponent<XRBaseInteractable>() != null)
-        {
-            interactables.Add(new InteractableObject(name, obj, "3d"));
-            return true;
-        }
-        return false;
-    }
-
-    private void AddChildInteractables(GameObject parent, string type, string name, List<InteractableObject> interactables)
-    {
-        if (type == "2d")
-        {
-            foreach (var trigger in parent.GetComponentsInChildren<EventTrigger>())
-            {
-                interactables.Add(new InteractableObject(name, trigger.gameObject, "2d"));
-            }
-        }
-        else if (type == "3d")
-        {
-            foreach (var interactable in parent.GetComponentsInChildren<XRBaseInteractable>())
-            {
-                interactables.Add(new InteractableObject(name, interactable.gameObject, "3d"));
-            }
-        }
     }
 
     void RegisterListener()

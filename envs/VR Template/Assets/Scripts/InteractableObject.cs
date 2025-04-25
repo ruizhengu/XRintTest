@@ -12,15 +12,15 @@ public class InteractableObject
   bool interacted;
   bool visited;
   string type;
-  string eventType;
-  string condition;
-  public InteractableObject(string name, GameObject go, string type)
+  List<string> events;
+  public InteractableObject(string name, GameObject go, string type, List<string> events)
   {
     this.name = name;
     this.interactable = go;
     this.type = type;
     this.visited = false;
     this.interacted = false;
+    this.events = events;
   }
 
   public string GetName()
@@ -65,5 +65,15 @@ public class InteractableObject
   public String GetObjectType()
   {
     return this.type;
+  }
+
+  public List<string> GetEvents()
+  {
+    return this.events;
+  }
+
+  public void SetEvents(List<string> events)
+  {
+    this.events = events;
   }
 }

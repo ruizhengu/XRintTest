@@ -66,11 +66,13 @@ public class InteractoBot : MonoBehaviour
             this.duration = duration;
         }
     }
-    private bool hasPerformedGripAction = false; // Flag to track if grip action has been performed
-    private bool hasPerformedTriggerAction = false; // Flag to track if trigger action has been performed
+    private bool hasPerformed3DAction = false; // If 3d interaction has been performed
+    private bool hasPerformed2DAction = false; // If UI interaction has been performed
     private float lastInteractionTime = 0f;
     private float interactionCooldown = 0.2f; // Cooldown period in seconds
     private int triggerActionCount = 0;
+    private string current3DInteractionPattern = ""; // Store the current 3D interaction pattern
+    private bool isGripHeld = false; // Track if grip is currently held
 
     void Start()
     {
@@ -225,13 +227,15 @@ public class InteractoBot : MonoBehaviour
 
                         if (closestInteractable.GetObjectType() == "3d")
                         {
+                            // Get the interaction pattern from the interactable's events
+                            var events = closestInteractable.GetEvents();
+                            current3DInteractionPattern = string.Join(",", events);
                             StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
                         }
                         else if (closestInteractable.GetObjectType() == "2d")
                         {
                             StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
                         }
-                        // Don't reset controller position immediately to allow for interaction
                     }
                 }
             }
@@ -243,15 +247,55 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void ThreeDInteraction()
     {
-        // Only perform the grip action once
-        if (!hasPerformedGripAction)
+        if (!hasPerformed3DAction)
         {
-            // Debug.Log("Starting 3D interaction with grip action");
-            ControllerGripAction();
-            hasPerformedGripAction = true;
-            // Add a delay before transitioning to give the interaction time to register
-            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+            // Use the stored interaction pattern to determine the action
+            if (current3DInteractionPattern.Contains("select") && current3DInteractionPattern.Contains("activate"))
+            {
+                // Start holding grip
+                if (!isGripHeld)
+                {
+                    StartCoroutine(HoldGripAndTrigger());
+                }
+            }
+            else if (current3DInteractionPattern.Contains("select"))
+            {
+                ControllerGripAction();
+                hasPerformed3DAction = true;
+                StartCoroutine(TransitionToState(ExplorationState.Navigation));
+            }
         }
+    }
+
+    private IEnumerator HoldGripAndTrigger()
+    {
+        isGripHeld = true;
+
+        // Hold grip
+        var keyboard = InputSystem.GetDevice<Keyboard>();
+        if (keyboard != null)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.G));
+        }
+
+        // Wait a short moment before triggering
+        yield return new WaitForSeconds(0.1f);
+
+        // Execute trigger action while grip is held
+        ControllerTriggerAction();
+
+        // Wait a short moment before releasing grip
+        yield return new WaitForSeconds(0.1f);
+
+        // Release grip
+        if (keyboard != null)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+        }
+
+        isGripHeld = false;
+        hasPerformed3DAction = true;
+        StartCoroutine(TransitionToState(ExplorationState.Navigation));
     }
 
     /// <summary>
@@ -259,19 +303,18 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void TwoDInteraction()
     {
-        // Check if enough time has passed since the last interaction
+        // Check cool down time since the last interaction
         if (Time.time - lastInteractionTime < interactionCooldown)
         {
             return;
         }
-        // Only perform the trigger action if we haven't completed both actions
+        // Only perform the trigger action if haven't completed two actions
         if (triggerActionCount < 2)
         {
-            // Debug.Log($"TwoDInteraction - Performing trigger action {triggerActionCount + 1}/2");
             ControllerTriggerAction();
             triggerActionCount++;
             lastInteractionTime = Time.time;
-            // Only transition to Navigation after both trigger actions are completed
+            // Only transition to Navigation after two trigger actions are completed
             if (triggerActionCount == 2)
             {
                 StartCoroutine(TransitionToState(ExplorationState.Navigation));
@@ -609,11 +652,13 @@ public class InteractoBot : MonoBehaviour
         // Reset the action flags when transitioning to a new state
         if (newState != ExplorationState.ThreeDInteraction)
         {
-            hasPerformedGripAction = false;
+            hasPerformed3DAction = false;
+            current3DInteractionPattern = ""; // Clear the interaction pattern when leaving 3D state
+            isGripHeld = false; // Ensure grip is released when leaving state
         }
         if (newState != ExplorationState.TwoDInteraction)
         {
-            hasPerformedTriggerAction = false;
+            hasPerformed2DAction = false;
             triggerActionCount = 0; // Reset trigger action count when leaving 2D interaction state
         }
         // Transition to the new state

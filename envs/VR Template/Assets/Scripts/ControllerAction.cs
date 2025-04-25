@@ -1,42 +1,39 @@
-// using UnityEngine;
+using UnityEngine;
 
-// public class ControllerAction
-// {
-//     // private GameObject leftController;
-//     private GameObject controller;
-//     private float controllerMovementStep = 0.1f;
-//     private bool movementCompleted;
-//     private bool interactionCompleted;
-//     // private string controllerType;
+public class ControllerAction : MonoBehaviour
+{
+    [SerializeField] private float moveRange = 5f; // Range of movement in each direction
+    [SerializeField] private float moveSpeed = 2f; // Speed of movement
 
-//     public ControllerAction(string controllerType)
-//     {
-//         if (controllerType == "left")
-//         {
-//             controller = GameObject.FindWithTag("LeftController");
-//         }
-//         else if (controllerType == "right")
-//         {
-//             controller = GameObject.FindWithTag("RightController");
-//         }
-//         else
-//         {
-//             Debug.LogError("Please create the controller with a valid type");
-//         }
-//     }
-//     IEnumerator ControllerMovement(Vector3 targetPos)
-//     {
-//         Debug.Log("ControllerMovement: " + targetPos);
-//         controller.transform.position = Vector3.MoveTowards(
-//             controller.transform.position,
-//             targetPos,
-//             controllerMovementStep * Time.deltaTime
-//         );
-//     }
+    private Vector3 targetPosition;
+    private float nextMoveTime;
 
-//     public void ControllerGrip()
-//     {
+    private void Start()
+    {
+        // Set initial target position
+        SetNewTargetPosition();
+    }
 
-//     }
+    private void Update()
+    {
+        // Move towards target position
+        transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
 
-// }
+        // If we've reached the target position or it's time to change direction
+        if (Vector3.Distance(transform.position, targetPosition) < 0.1f || Time.time >= nextMoveTime)
+        {
+            SetNewTargetPosition();
+        }
+    }
+
+    private void SetNewTargetPosition()
+    {
+        // Generate random position within range
+        float randomX = Random.Range(-moveRange, moveRange);
+        float randomY = Random.Range(-moveRange, moveRange);
+        float randomZ = Random.Range(-moveRange, moveRange);
+
+        targetPosition = new Vector3(randomX, randomY, randomZ);
+        nextMoveTime = Time.time + Random.Range(2f, 5f); // Change direction every 2-5 seconds
+    }
+}

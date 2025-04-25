@@ -28,8 +28,8 @@ public class InteractoBot : MonoBehaviour
     private float updateInterval = 0.05f;
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
-    private float controllerMovementThreshold = 0.03f; // The distance of controller movement to continue interaction
-    private float interactionOffset = 0.05f; // Small distance in front of the target for interaction
+    private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
+    private float interactionOffset = 0.1f; // Small distance in front of the target for interaction
     private float stateTransitionDelay = 0.1f; // Delay between state transitions
     private bool isControllerMoving = false; // Flag to track if controller is currently moving
     private enum ControllerState // Controller manipulation state
@@ -68,6 +68,9 @@ public class InteractoBot : MonoBehaviour
     }
     private bool hasPerformedGripAction = false; // Flag to track if grip action has been performed
     private bool hasPerformedTriggerAction = false; // Flag to track if trigger action has been performed
+    private float lastInteractionTime = 0f;
+    private float interactionCooldown = 0.2f; // Cooldown period in seconds
+    private int triggerActionCount = 0;
 
     void Start()
     {
@@ -260,13 +263,23 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void TwoDInteraction()
     {
-        // Only perform the trigger action once
-        if (!hasPerformedTriggerAction)
+        // Check if enough time has passed since the last interaction
+        if (Time.time - lastInteractionTime < interactionCooldown)
         {
+            return;
+        }
+        // Only perform the trigger action if we haven't completed both actions
+        if (triggerActionCount < 2)
+        {
+            // Debug.Log($"TwoDInteraction - Performing trigger action {triggerActionCount + 1}/2");
             ControllerTriggerAction();
-            hasPerformedTriggerAction = true;
-            // After trigger action, return to navigation with delay
-            StartCoroutine(TransitionToState(ExplorationState.Navigation));
+            triggerActionCount++;
+            lastInteractionTime = Time.time;
+            // Only transition to Navigation after both trigger actions are completed
+            if (triggerActionCount == 2)
+            {
+                StartCoroutine(TransitionToState(ExplorationState.Navigation));
+            }
         }
     }
 
@@ -670,6 +683,7 @@ public class InteractoBot : MonoBehaviour
         if (newState != ExplorationState.TwoDInteraction)
         {
             hasPerformedTriggerAction = false;
+            triggerActionCount = 0; // Reset trigger action count when leaving 2D interaction state
         }
         // Transition to the new state
         currentExplorationState = newState;

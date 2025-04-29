@@ -453,7 +453,7 @@ public class InteractoBot : MonoBehaviour
             }
         }
         // Register EventTrigger listeners for UI elements
-        EventTrigger[] uiTriggers = FindObjectsOfType<EventTrigger>();
+        EventTrigger[] uiTriggers = FindObjectsByType<EventTrigger>(FindObjectsSortMode.None);
         foreach (EventTrigger trigger in uiTriggers)
         {
             // Create entry for pointer click

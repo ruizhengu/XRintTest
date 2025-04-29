@@ -227,7 +227,7 @@ public static class Utils
     var interactable = GameObject.Find(name);
     if (interactable != null) return interactable;
 
-    return GameObject.FindObjectsOfType<GameObject>()
+    return GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None)
         .FirstOrDefault(obj => obj.name.Contains(name));
   }
 

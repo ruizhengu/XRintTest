@@ -34,6 +34,30 @@ public class InteractionEvent
 
 public static class Utils
 {
+
+  /// <summary>
+  /// Find simulator devices (i.e., controllers and HMD)
+  /// </summary>
+  public static void FindSimulatedDevices()
+  {
+    InputDevice simulatedControllerDevice = null;
+    var devices = InputSystem.devices;
+    foreach (var device in devices)
+    {
+      if (device.name == "XRSimulatedController")
+      {
+        simulatedControllerDevice = device;
+        break;
+      }
+      // TODO: could check what does "XRSimulatedController1" do
+    }
+    if (simulatedControllerDevice == null)
+    {
+      Debug.LogWarning("Couldn't find simulated left controller device. Movement won't work.");
+    }
+  }
+
+
   /// <summary>
   /// Get the interaction distance considering resolution
   /// </summary>
@@ -81,27 +105,27 @@ public static class Utils
     return worldDirection;
   }
 
-  // public static Dictionary<GameObject, InteractableObject> GetInteractables()
-  // {
-  //   Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
-  //   GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-  //   foreach (GameObject go in gos)
-  //   {
-  //     EventTrigger trigger = go.GetComponent<EventTrigger>();
-  //     UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable xrInteractable =
-  //       go.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
+  public static Dictionary<GameObject, InteractableObject> GetInteractables()
+  {
+    Dictionary<GameObject, InteractableObject> interactables = new Dictionary<GameObject, InteractableObject>();
+    GameObject[] gos = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+    foreach (GameObject go in gos)
+    {
+      EventTrigger trigger = go.GetComponent<EventTrigger>();
+      UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable xrInteractable =
+        go.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
 
-  //     if (trigger != null && !interactables.ContainsKey(go))
-  //     {
-  //       interactables[go] = new InteractableObject(null, go, "2d", new List<string>());
-  //     }
-  //     else if (xrInteractable != null && !interactables.ContainsKey(go))
-  //     {
-  //       interactables[go] = new InteractableObject(null, go, "3d", new List<string>());
-  //     }
-  //   }
-  //   return interactables;
-  // }
+      if (trigger != null && !interactables.ContainsKey(go))
+      {
+        interactables[go] = new InteractableObject(null, go, "2d", new List<string>());
+      }
+      else if (xrInteractable != null && !interactables.ContainsKey(go))
+      {
+        interactables[go] = new InteractableObject(null, go, "3d", new List<string>());
+      }
+    }
+    return interactables;
+  }
 
   /// <summary>
   /// Get the interaction events from the interaction_results.json file
@@ -262,5 +286,22 @@ public static class Utils
         interactables.Add(new InteractableObject(name, interactable.gameObject, "3d", new List<string>(eventTypes)));
       }
     }
+  }
+
+  public static int CountInteracted(List<InteractableObject> interactableObjects)
+  {
+    int count = 0;
+    foreach (var obj in interactableObjects)
+    {
+      if (obj.GetInteracted())
+      {
+        count++;
+      }
+      else
+      {
+        Debug.Log("Not Interacted Interactable: " + obj.GetName());
+      }
+    }
+    return count;
   }
 }

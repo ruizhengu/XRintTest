@@ -18,8 +18,6 @@ public class InteractoBot : MonoBehaviour
     public List<InteractableObject> interactableObjects;
     public int interactionCount = 0;
     public GameObject rightController;
-    // Input device references
-    private InputDevice simulatedControllerDevice;
     private float gameSpeed = 3.0f; // May alter gameSpeed to speed up the test execution process
     // Movement parameters
     private float moveSpeed = 1.0f;
@@ -63,28 +61,7 @@ public class InteractoBot : MonoBehaviour
         interactableObjects = Utils.GetInteractableObjects();
         interactionCount = interactableObjects.Count;
         RegisterListener(); // Register listeners for interactables and UIs
-        FindSimulatedDevices(); // Find the simulated devices
-    }
-
-    /// <summary>
-    /// Find simulator devices (i.e., controllers and HMD)
-    /// </summary>
-    void FindSimulatedDevices()
-    {
-        var devices = InputSystem.devices;
-        foreach (var device in devices)
-        {
-            if (device.name == "XRSimulatedController")
-            {
-                simulatedControllerDevice = device;
-                break;
-            }
-            // TODO: could check what does "XRSimulatedController1" do
-        }
-        if (simulatedControllerDevice == null)
-        {
-            Debug.LogWarning("Couldn't find simulated left controller device. Movement won't work.");
-        }
+        Utils.FindSimulatedDevices(); // Find the simulated devices
     }
 
     void Update()
@@ -118,7 +95,7 @@ public class InteractoBot : MonoBehaviour
         if (closestInteractable == null)
         {
             Debug.Log("Test End");
-            Debug.Log("Number of Interacted Interactables: " + CountInteracted() + " / " + interactionCount);
+            Debug.Log("Number of Interacted Interactables: " + Utils.CountInteracted(interactableObjects) + " / " + interactionCount);
             return;
         }
 
@@ -477,22 +454,22 @@ public class InteractoBot : MonoBehaviour
         }
     }
 
-    private int CountInteracted()
-    {
-        int count = 0;
-        foreach (var obj in interactableObjects)
-        {
-            if (obj.GetInteracted())
-            {
-                count++;
-            }
-            else
-            {
-                Debug.Log("Not Interacted Interactable: " + obj.GetName());
-            }
-        }
-        return count;
-    }
+    // private int CountInteracted()
+    // {
+    //     int count = 0;
+    //     foreach (var obj in interactableObjects)
+    //     {
+    //         if (obj.GetInteracted())
+    //         {
+    //             count++;
+    //         }
+    //         else
+    //         {
+    //             Debug.Log("Not Interacted Interactable: " + obj.GetName());
+    //         }
+    //     }
+    //     return count;
+    // }
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {

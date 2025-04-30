@@ -124,6 +124,11 @@ public static class Utils
         interactables[go] = new InteractableObject(null, go, "3d", new List<string>());
       }
     }
+    foreach (var interactable in interactables)
+    {
+      Debug.Log("Interactable: " + interactable.Key.name + " " + interactable.Value.GetName());
+    }
+    Debug.Log("Interactables: " + interactables.Count);
     return interactables;
   }
 

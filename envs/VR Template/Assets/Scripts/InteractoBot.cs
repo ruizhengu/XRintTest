@@ -68,21 +68,21 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         // Handle different exploration states
-        switch (currentExplorationState)
-        {
-            case ExplorationState.Navigation:
-                Navigation();
-                break;
-            case ExplorationState.ControllerMovement:
-                ControllerMovement();
-                break;
-            case ExplorationState.ThreeDInteraction:
-                ThreeDInteraction();
-                break;
-            case ExplorationState.TwoDInteraction:
-                TwoDInteraction();
-                break;
-        }
+        // switch (currentExplorationState)
+        // {
+        //     case ExplorationState.Navigation:
+        //         Navigation();
+        //         break;
+        //     case ExplorationState.ControllerMovement:
+        //         ControllerMovement();
+        //         break;
+        //     case ExplorationState.ThreeDInteraction:
+        //         ThreeDInteraction();
+        //         break;
+        //     case ExplorationState.TwoDInteraction:
+        //         TwoDInteraction();
+        //         break;
+        // }
     }
 
     /// <summary>
@@ -432,6 +432,7 @@ public class InteractoBot : MonoBehaviour
                 baseInteractable.selectExited.AddListener(OnSelectExited);
                 baseInteractable.activated.AddListener(OnActivated);
                 baseInteractable.deactivated.AddListener(OnDeactivated);
+                baseInteractable.hoverEntered.AddListener(OnHoverEntered);
             }
         }
         // Register EventTrigger listeners for UI elements
@@ -457,6 +458,11 @@ public class InteractoBot : MonoBehaviour
                 break;
             }
         }
+    }
+    private void OnHoverEntered(HoverEnterEventArgs args)
+    {
+        var xrInteractable = args.interactableObject;
+        Debug.Log("OnHoverEntered: " + xrInteractable.transform.name);
     }
 
     private void OnSelectEntered(SelectEnterEventArgs args)

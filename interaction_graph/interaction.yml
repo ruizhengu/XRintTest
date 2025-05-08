@@ -4,6 +4,7 @@ interactables:
   select:
     - XRGrabInteractable
     - XRPokeFilter
+    - ClimbInteractable
   custom:
     - XRKnob
 interactors:

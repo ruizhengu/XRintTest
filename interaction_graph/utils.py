@@ -1,5 +1,21 @@
+import functools
 from interaction import Interaction, InteractionEvent, InteractionRole
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
+import re
+from pathlib import Path
+
+
+def cache_results(func):
+    """Cache function results to avoid redundant computations"""
+    cache = {}
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return wrapper
 
 
 def get_interaction_event_role(predefined_interactions: dict, file_name: str) -> Tuple[Optional[InteractionEvent], Optional[InteractionRole]]:
@@ -104,6 +120,7 @@ def get_prefab_instance_name(doc, obj_id):
     return None
 
 
+@cache_results
 def get_entry_by_anchor(doc, anchor):
     """Get entry by anchor from Unity document"""
     for entry in doc.entries:
@@ -112,45 +129,59 @@ def get_entry_by_anchor(doc, anchor):
     return None
 
 
-def get_object_name(doc, obj_id):
-    """Get object name from Unity document"""
+@cache_results
+def get_object_name(doc, obj_id: str, check_modifications: bool = True) -> Optional[str]:
+    """Get object name from Unity document with optional modification checking"""
     if entry := get_entry_by_anchor(doc, obj_id):
+        if check_modifications and hasattr(entry, "m_Modification"):
+            name = get_modification_value(entry.m_Modification["m_Modifications"], "m_Name")
+            if name:
+                return name
         if hasattr(entry, "m_Name"):
             return entry.m_Name
     return None
 
 
-def get_file_guid(file_name):
+@cache_results
+def get_file_guid(file_path: Path) -> Optional[str]:
     """Get the guid of the file"""
-    import re
-    with open(file_name, 'r', encoding='utf-8') as f:
-        content = f.read()
-        guid_match = re.search(r'guid: (\w+)', content)
-        if guid_match:
-            return guid_match.group(1)
+    try:
+        content = file_path.read_text(encoding='utf-8')
+        if match := re.search(r'guid: (\w+)', content):
+            return match.group(1)
+    except Exception:
+        return None
     return None
 
 
+@cache_results
 def get_object_path(doc, obj_id):
     """Get the full path of an object in the scene hierarchy"""
     if entry := get_entry_by_anchor(doc, obj_id):
-        # Start with the current object's name
         path_parts = []
-        if hasattr(entry, "m_Name"):
-            path_parts.append(entry.m_Name)
+        if name := get_object_name(doc, obj_id, check_modifications=False):
+            path_parts.append(name)
 
-        # Traverse up the hierarchy
         current_entry = entry
         while hasattr(current_entry, "m_Father"):
-            parent_id = current_entry.m_Father.get("fileID")
-            if parent_entry := get_entry_by_anchor(doc, parent_id):
-                if hasattr(parent_entry, "m_Name"):
-                    path_parts.append(parent_entry.m_Name)
-                current_entry = parent_entry
+            if parent_id := current_entry.m_Father.get("fileID"):
+                if parent_entry := get_entry_by_anchor(doc, parent_id):
+                    if parent_name := get_object_name(doc, parent_id, check_modifications=False):
+                        path_parts.append(parent_name)
+                    current_entry = parent_entry
+                else:
+                    break
             else:
                 break
 
-        # Reverse the path parts to get root-to-leaf order
-        path_parts.reverse()
-        return "/".join(path_parts) if path_parts else None
+        return "/".join(reversed(path_parts)) if path_parts else None
+    return None
+
+
+@cache_results
+def get_modification_value(modifications: list, property_path: str) -> Optional[Any]:
+    """Get a modification value for a given property path"""
+    for mod in modifications:
+        if mod.get("propertyPath") == property_path:
+            return mod.get("value")
     return None

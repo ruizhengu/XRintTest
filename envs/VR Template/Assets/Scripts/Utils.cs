@@ -114,12 +114,11 @@ public static class Utils
       EventTrigger trigger = go.GetComponent<EventTrigger>();
       UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable xrInteractable =
         go.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
-
-      if (trigger != null && !interactables.ContainsKey(go))
-      {
-        interactables[go] = new InteractableObject(null, go, "2d", new List<string>());
-      }
-      else if (xrInteractable != null && !interactables.ContainsKey(go))
+      // if (trigger != null && !interactables.ContainsKey(go))
+      // {
+      //   interactables[go] = new InteractableObject(null, go, "2d", new List<string>());
+      // }
+      if (xrInteractable != null && !interactables.ContainsKey(go))
       {
         interactables[go] = new InteractableObject(null, go, "3d", new List<string>());
       }

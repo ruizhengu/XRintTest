@@ -107,19 +107,6 @@ class InteractionGraph:
             # If all else fails, return the object's own name
             return utils.get_object_name(self.scene_doc, obj_id)
 
-    def _build_prefab_hierarchy_map(self):
-        """Build the prefab hierarchy map for the entire scene"""
-        self.prefab_hierarchy = {}
-        for entry in self.scene_doc.filter(class_names=("PrefabInstance",)):
-            prefab_guid = entry.m_SourcePrefab.get("guid")
-            if not prefab_guid:
-                continue
-            prefab_name = utils.get_prefab_instance_name(self.scene_doc, entry.anchor)
-            if not prefab_name:
-                prefab_name = self.get_asset_name_by_guid(prefab_guid)
-            self.prefab_instances[entry.anchor] = prefab_name
-            self._process_nested_prefabs(prefab_guid, prefab_name, entry.anchor)
-
     def _process_nested_prefabs(self, prefab_guid, parent_name, parent_anchor):
         """Process nested prefabs to build the hierarchy map"""
         prefab_meta = None
@@ -259,6 +246,19 @@ class InteractionGraph:
             if self._has_valid_interactions(child_prefab, processed):
                 return True
         return False
+
+    def _build_prefab_hierarchy_map(self):
+        """Build the prefab hierarchy map for the entire scene"""
+        self.prefab_hierarchy = {}
+        for entry in self.scene_doc.filter(class_names=("PrefabInstance",)):
+            prefab_guid = entry.m_SourcePrefab.get("guid")
+            if not prefab_guid:
+                continue
+            prefab_name = utils.get_prefab_instance_name(self.scene_doc, entry.anchor)
+            if not prefab_name:
+                prefab_name = self.get_asset_name_by_guid(prefab_guid)
+            self.prefab_instances[entry.anchor] = prefab_name
+            self._process_nested_prefabs(prefab_guid, prefab_name, entry.anchor)
 
     def _build_prefab_hierarchy(self, prefab, processed=None):
         """Build the prefab hierarchy by adding children to each prefab"""
@@ -513,7 +513,7 @@ class InteractionGraph:
     def test(self):
         self.get_interactive_prefabs()
         self.get_scene_interactions()
-        self.get_ui_objects()
+        # self.get_ui_objects()
         print(len(self.interactables))
         print(len(self.interactors))
         # self.build_graph()

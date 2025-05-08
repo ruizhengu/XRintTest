@@ -26,7 +26,7 @@ public class InteractoBot : MonoBehaviour
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
     private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
-    private float interactionOffset = 0.1f; // Small distance in front of the target for interaction
+    private float interactionOffset = 0.05f; // Small distance in front of the target for interaction
     private float stateTransitionDelay = 0.1f; // Delay between state transitions
     private bool isControllerMoving = false; // Flag to track if controller is currently moving
     private ControllerState currentControllerState = ControllerState.None; // Default state
@@ -90,14 +90,19 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void Navigation()
     {
-        ResetControllerPosition();
         InteractableObject closestInteractable = GetCloestInteractable();
         if (closestInteractable == null)
         {
+            if (interactableObjects.All(obj => obj.GetVisited()) &&
+                (isGripHeld || gripActionCount > 0 || combinedActionCount > 0))
+            {
+                return; // Don't end the test yet, let the interaction complete
+            }
             Debug.Log("Test End");
             Debug.Log("Number of Interacted Interactables: " + Utils.CountInteracted(interactableObjects) + " / " + interactionCount);
             return;
         }
+        ResetControllerPosition();
 
         GameObject closestObject = closestInteractable.GetObject();
         Vector3 currentPos = transform.position;
@@ -471,6 +476,7 @@ public class InteractoBot : MonoBehaviour
     {
         var interactable = args.interactableObject;
         Debug.Log($"OnActivated: {interactable.transform.name}");
+        SetObjectInteracted(interactable.transform.name);
     }
 
     private void OnDeactivated(DeactivateEventArgs args)

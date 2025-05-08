@@ -180,7 +180,7 @@ public static class Utils
 
       ProcessInteractable(interactable, interactionEvent, interactableEventTypes, interactionEvents, interactableObjects, processedInteractables);
     }
-    // LogInteractables(interactableObjects);
+    LogInteractables(interactableObjects);
     return interactableObjects;
   }
 

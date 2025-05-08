@@ -11,7 +11,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Linq;
 
-public class XUIMonkey : MonoBehaviour
+public class InteractoBotRand : MonoBehaviour
 {
     private float actionInterval = 1.0f; // Time between random actions
     private float lastActionTime = 0f;

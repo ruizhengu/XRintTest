@@ -3,6 +3,7 @@ interactables:
     - XRBaseInteractable
   select:
     - XRGrabInteractable
+    - XRPokeFilter
   custom:
     - XRKnob
 interactors:
@@ -11,10 +12,10 @@ interactors:
   user:
     - XRPokeInteractor
     - NearFarInteractor
-uis:
-  activate:
-    - Button
-    - Slider
-    - Toggle
-    - Dropdown
-    - TMP_Dropdown
+# uis:
+#   activate:
+#     - Button
+#     - Slider
+#     - Toggle
+#     - Dropdown
+#     - TMP_Dropdown

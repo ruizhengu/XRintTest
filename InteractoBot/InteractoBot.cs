@@ -185,10 +185,10 @@ public class InteractoBot : MonoBehaviour
                     {
                         StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
                     }
-                    else if (closestInteractable.GetObjectType() == "2d")
-                    {
-                        StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
-                    }
+                    // else if (closestInteractable.GetObjectType() == "2d")
+                    // {
+                    //     StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
+                    // }
                 }
             }
         }
@@ -430,15 +430,15 @@ public class InteractoBot : MonoBehaviour
             }
         }
         // Register EventTrigger listeners for UI elements
-        EventTrigger[] uiTriggers = FindObjectsByType<EventTrigger>(FindObjectsSortMode.None);
-        foreach (EventTrigger trigger in uiTriggers)
-        {
-            // Create entry for pointer click
-            EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
-            pointerClickEntry.eventID = EventTriggerType.PointerClick;
-            pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
-            trigger.triggers.Add(pointerClickEntry);
-        }
+        // EventTrigger[] uiTriggers = FindObjectsByType<EventTrigger>(FindObjectsSortMode.None);
+        // foreach (EventTrigger trigger in uiTriggers)
+        // {
+        //     // Create entry for pointer click
+        //     EventTrigger.Entry pointerClickEntry = new EventTrigger.Entry();
+        //     pointerClickEntry.eventID = EventTriggerType.PointerClick;
+        //     pointerClickEntry.callback.AddListener((data) => { OnPointerClick((PointerEventData)data); });
+        //     trigger.triggers.Add(pointerClickEntry);
+        // }
     }
 
     void SetObjectInteracted(string interactableName)
@@ -453,23 +453,6 @@ public class InteractoBot : MonoBehaviour
             }
         }
     }
-
-    // private int CountInteracted()
-    // {
-    //     int count = 0;
-    //     foreach (var obj in interactableObjects)
-    //     {
-    //         if (obj.GetInteracted())
-    //         {
-    //             count++;
-    //         }
-    //         else
-    //         {
-    //             Debug.Log("Not Interacted Interactable: " + obj.GetName());
-    //         }
-    //     }
-    //     return count;
-    // }
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
@@ -506,44 +489,44 @@ public class InteractoBot : MonoBehaviour
         Debug.Log($"Pointer exited UI: {eventData.pointerEnter.name}");
     }
 
-    private void OnPointerClick(PointerEventData eventData)
-    {
-        var button = eventData.pointerEnter.GetComponentInParent<Button>();
-        var toggle = eventData.pointerEnter.GetComponentInParent<Toggle>();
-        var slider = eventData.pointerEnter.GetComponentInParent<Slider>();
-        var dropdown = eventData.pointerEnter.GetComponentInParent<Dropdown>();
-        var tmp_dropdown = eventData.pointerEnter.GetComponentInParent<TMP_Dropdown>();
-        if (button != null)
-        {
-            // Debug.Log("Button clicked: " + button.gameObject.name);
-            SetObjectInteracted(button.gameObject.name);
-        }
-        else if (toggle != null)
-        {
-            // Debug.Log("Toggle clicked: " + toggle.gameObject.name);
-            SetObjectInteracted(toggle.gameObject.name);
-        }
-        else if (slider != null)
-        {
-            // Debug.Log("Slider clicked: " + slider.gameObject.name);
-            SetObjectInteracted(slider.gameObject.name);
-        }
-        else if (dropdown != null)
-        {
-            // Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
-            SetObjectInteracted(dropdown.gameObject.name);
-        }
-        else if (tmp_dropdown != null)
-        {
-            // Debug.Log("TMP_Dropdown clicked: " + tmp_dropdown.gameObject.name);
-            SetObjectInteracted(tmp_dropdown.gameObject.name);
-        }
-        else
-        {
-            // Debug.Log("Uncategorised UI clicked: " + eventData.pointerEnter.name);
-            SetObjectInteracted(eventData.pointerEnter.name);
-        }
-    }
+    // private void OnPointerClick(PointerEventData eventData)
+    // {
+    //     var button = eventData.pointerEnter.GetComponentInParent<Button>();
+    //     var toggle = eventData.pointerEnter.GetComponentInParent<Toggle>();
+    //     var slider = eventData.pointerEnter.GetComponentInParent<Slider>();
+    //     var dropdown = eventData.pointerEnter.GetComponentInParent<Dropdown>();
+    //     var tmp_dropdown = eventData.pointerEnter.GetComponentInParent<TMP_Dropdown>();
+    //     if (button != null)
+    //     {
+    //         // Debug.Log("Button clicked: " + button.gameObject.name);
+    //         SetObjectInteracted(button.gameObject.name);
+    //     }
+    //     else if (toggle != null)
+    //     {
+    //         // Debug.Log("Toggle clicked: " + toggle.gameObject.name);
+    //         SetObjectInteracted(toggle.gameObject.name);
+    //     }
+    //     else if (slider != null)
+    //     {
+    //         // Debug.Log("Slider clicked: " + slider.gameObject.name);
+    //         SetObjectInteracted(slider.gameObject.name);
+    //     }
+    //     else if (dropdown != null)
+    //     {
+    //         // Debug.Log("Dropdown clicked: " + dropdown.gameObject.name);
+    //         SetObjectInteracted(dropdown.gameObject.name);
+    //     }
+    //     else if (tmp_dropdown != null)
+    //     {
+    //         // Debug.Log("TMP_Dropdown clicked: " + tmp_dropdown.gameObject.name);
+    //         SetObjectInteracted(tmp_dropdown.gameObject.name);
+    //     }
+    //     else
+    //     {
+    //         // Debug.Log("Uncategorised UI clicked: " + eventData.pointerEnter.name);
+    //         SetObjectInteracted(eventData.pointerEnter.name);
+    //     }
+    // }
 
     /// <summary>
     /// Transition to a new state with a delay

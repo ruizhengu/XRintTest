@@ -43,7 +43,7 @@ class InteractionGraph:
         self.scene_doc = UnityDocument.load_yaml(self.sut)
         self.scene_scripts = self.scene_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))
         self.interaction_events_3d = self.get_interaction_types_3d()
-        self.interaction_events_ui = self.get_interaction_types_ui()
+        # self.interaction_events_ui = self.get_interaction_types_ui()
         self.interactables = set()
         self.interactors = set()
         self.prefab_hierarchy = {}  # Track prefab hierarchies
@@ -207,30 +207,138 @@ class InteractionGraph:
         return self.get_interaction_types(is_ui=False)
 
     def _process_prefab_interactions(self, prefab):
-        """Process a prefab to identify and categorise its interaction components"""
+        """
+        Process a prefab to identify and categorise its interaction components
+        Args:
+            prefab: The prefab object to analyse
+        """
         prefab_doc = UnityDocument.load_yaml(prefab.file)
         results = set()
         script_guids = {script.m_Script.get("guid") for script in prefab_doc.filter(
             class_names=("MonoBehaviour",), attributes=("m_Script",))}
+
+        # First check if this prefab has any interaction scripts
+        has_interaction = False
+        interaction_type = None
         for interaction in self.interaction_events_3d:
-            if interaction.guid not in script_guids:
-                continue
-            top_level_name = self.get_top_level_prefab_name(prefab)
-            component_props = {
-                "name": top_level_name,
-                "script": interaction.file,
-                "event": interaction.event,
-                "layer": prefab.interaction_layer
-            }
-            if interaction.role == InteractionRole.INTERACTOR:
-                results.add(Interactor(**component_props))
-            else:
-                component_props["type"] = InteractableType.THREE_D
-                results.add(Interactable(**component_props))
-                if utils.has_precondition(prefab_doc):
-                    component_props["event"] = InteractionEvent.ACTIVATE
-                    results.add(Interactable(**component_props))
-            break
+            if interaction.guid in script_guids:
+                has_interaction = True
+                interaction_type = interaction
+                break
+
+        # If this prefab has interaction scripts, process them
+        if has_interaction:
+            print(f"\nProcessing prefab with interaction: {prefab.name} (GUID: {prefab.guid})")
+            # Get all instances from scene that match this prefab's GUID
+            instance_names = {}  # Map of fileID to instance name
+            found_modified_instances = False  # Track if we found any modified instance names
+
+            # First check direct instances in the scene
+            for scene_instance in self.scene_doc.filter(class_names=("PrefabInstance",)):
+                if scene_instance.m_SourcePrefab.get("guid") == prefab.guid:
+                    for mod in scene_instance.m_Modification["m_Modifications"]:
+                        if mod.get("propertyPath") == "m_Name":
+                            target_id = mod.get("target", {}).get("fileID")
+                            if target_id:
+                                instance_name = mod.get("value")
+                                if instance_name != prefab.name:  # Only add if name is modified
+                                    print(
+                                        f"Found modified instance name in scene: {instance_name} (fileID: {target_id})")
+                                    instance_names[target_id] = instance_name
+                                    found_modified_instances = True
+
+            # If no direct instances found, traverse up through all parent prefabs
+            if not instance_names:
+                current_guid = prefab.guid
+                parent_chain = []
+                # Build chain of parent prefabs
+                while current_guid in self.prefab_hierarchy:
+                    parent_guid = self.prefab_hierarchy[current_guid]
+                    parent_chain.append(parent_guid)
+                    current_guid = parent_guid
+
+                # Process each level of parent prefabs
+                for parent_guid in parent_chain:
+                    print(f"Checking parent prefab: {parent_guid}")
+                    parent_prefab_path = self.asset_prefab_guids[parent_guid].parent / \
+                        self.asset_prefab_guids[parent_guid].stem
+                    parent_doc = UnityDocument.load_yaml(parent_prefab_path)
+
+                    # Look for our prefab's instances in the parent
+                    for parent_instance in parent_doc.filter(class_names=("PrefabInstance",)):
+                        if parent_instance.m_SourcePrefab.get("guid") == prefab.guid:
+                            # Get instance name from parent's modifications
+                            for mod in parent_instance.m_Modification["m_Modifications"]:
+                                if mod.get("propertyPath") == "m_Name":
+                                    instance_name = mod.get("value")
+                                    if instance_name != prefab.name:  # Only add if name is modified
+                                        print(f"Found modified instance name in parent prefab: {instance_name}")
+                                        instance_names[f"parent_{len(instance_names)}"] = instance_name
+                                        found_modified_instances = True
+
+                    # Also check scene for instances of this parent that might rename our prefab
+                    for scene_instance in self.scene_doc.filter(class_names=("PrefabInstance",)):
+                        if scene_instance.m_SourcePrefab.get("guid") == parent_guid:
+                            for mod in scene_instance.m_Modification["m_Modifications"]:
+                                if mod.get("propertyPath") == "m_Name":
+                                    target_id = mod.get("target", {}).get("fileID")
+                                    if target_id:
+                                        instance_name = mod.get("value")
+                                        print(
+                                            f"Found instance name in scene for parent: {instance_name} (fileID: {target_id})")
+                                        # Only add if it's renaming our actual prefab, not the container
+                                        if (instance_name != "Far Grab Samples" and
+                                            instance_name != "Poke Interactions Sample" and
+                                            instance_name != "Interactables Sample" and
+                                                instance_name != prefab.name):  # Only add if name is modified
+                                            instance_names[target_id] = instance_name
+                                            found_modified_instances = True
+
+            print(f"Found instance names: {instance_names}")
+            # Only use the prefab's own name if we didn't find any modified instances
+            if not found_modified_instances:
+                instance_names = {"default": prefab.name}
+                print(f"No modified instances found, using prefab name: {prefab.name}")
+
+            # Create components for each instance
+            for file_id, instance_name in instance_names.items():
+                component_props = {
+                    "name": instance_name,
+                    "script": interaction_type.file,
+                    "event": interaction_type.event,
+                    "layer": prefab.interaction_layer
+                }
+                if interaction_type.role == InteractionRole.INTERACTOR:
+                    results.add(Interactor(**component_props))
+                else:
+                    component_props["type"] = InteractableType.THREE_D
+                    interactable = Interactable(**component_props)
+                    print(f"Creating interactable: {interactable.name}")
+                    results.add(interactable)
+                    # Only add activate event if there's a precondition and we haven't added it yet
+                    if utils.has_precondition(prefab_doc):
+                        activate_props = component_props.copy()
+                        activate_props["event"] = InteractionEvent.ACTIVATE
+                        results.add(Interactable(**activate_props))
+
+        # Process nested prefabs regardless of whether this prefab has interactions
+        for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
+            nested_guid = nested_entry.m_SourcePrefab.get("guid")
+            if nested_guid and nested_guid in self.asset_prefab_guids:
+                instance_name = utils.get_prefab_instance_name(prefab_doc, nested_entry.anchor)
+                if not instance_name:
+                    instance_name = self.asset_prefab_guids[nested_guid].stem.replace(".prefab", "")
+
+                nested_prefab = Prefab(
+                    name=instance_name,
+                    guid=nested_guid,
+                    file=self.asset_prefab_guids[nested_guid].parent / self.asset_prefab_guids[nested_guid].stem,
+                    type=PrefabType.SCENE,
+                    interaction_layer=prefab.interaction_layer
+                )
+                nested_results = self._process_prefab_interactions(nested_prefab)
+                results.update(nested_results)
+
         return results
 
     def _has_valid_interactions(self, prefab, processed=None):
@@ -240,25 +348,66 @@ class InteractionGraph:
         if prefab in processed:
             return False
         processed.add(prefab)
-        if self._process_prefab_interactions(prefab):
-            return True
-        for child_prefab in prefab.children:
-            if self._has_valid_interactions(child_prefab, processed):
+
+        # First check if this prefab has interaction scripts
+        prefab_doc = UnityDocument.load_yaml(prefab.file)
+        script_guids = {script.m_Script.get("guid") for script in prefab_doc.filter(
+            class_names=("MonoBehaviour",), attributes=("m_Script",))}
+        for interaction in self.interaction_events_3d:
+            if interaction.guid in script_guids:
                 return True
+
+        # If not, check nested prefabs
+        for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
+            nested_guid = nested_entry.m_SourcePrefab.get("guid")
+            if nested_guid and nested_guid in self.asset_prefab_guids:
+                nested_prefab = Prefab(
+                    name=utils.get_prefab_instance_name(prefab_doc, nested_entry.anchor),
+                    guid=nested_guid,
+                    file=self.asset_prefab_guids[nested_guid].parent / self.asset_prefab_guids[nested_guid].stem,
+                    type=PrefabType.SCENE,
+                    interaction_layer=prefab.interaction_layer
+                )
+                if self._has_valid_interactions(nested_prefab, processed):
+                    return True
         return False
 
     def _build_prefab_hierarchy_map(self):
         """Build the prefab hierarchy map for the entire scene"""
         self.prefab_hierarchy = {}
+        self.prefab_instances = {}  # Map prefab GUIDs to their instance names
+
+        # First pass: collect all instance names from the scene
         for entry in self.scene_doc.filter(class_names=("PrefabInstance",)):
             prefab_guid = entry.m_SourcePrefab.get("guid")
             if not prefab_guid:
                 continue
-            prefab_name = utils.get_prefab_instance_name(self.scene_doc, entry.anchor)
-            if not prefab_name:
-                prefab_name = self.get_asset_name_by_guid(prefab_guid)
-            self.prefab_instances[entry.anchor] = prefab_name
-            self._process_nested_prefabs(prefab_guid, prefab_name, entry.anchor)
+
+            # Get instance name from modifications
+            instance_name = None
+            for mod in entry.m_Modification["m_Modifications"]:
+                if mod.get("propertyPath") == "m_Name":
+                    instance_name = mod.get("value")
+                    break
+
+            if instance_name:
+                if prefab_guid not in self.prefab_instances:
+                    self.prefab_instances[prefab_guid] = set()
+                self.prefab_instances[prefab_guid].add(instance_name)
+
+        # Second pass: build hierarchy
+        for entry in self.scene_doc.filter(class_names=("PrefabInstance",)):
+            prefab_guid = entry.m_SourcePrefab.get("guid")
+            if not prefab_guid:
+                continue
+
+            # Process nested prefabs
+            prefab_doc = UnityDocument.load_yaml(
+                self.asset_prefab_guids[prefab_guid].parent / self.asset_prefab_guids[prefab_guid].stem)
+            for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
+                nested_guid = nested_entry.m_SourcePrefab.get("guid")
+                if nested_guid:
+                    self.prefab_hierarchy[nested_guid] = prefab_guid
 
     def _build_prefab_hierarchy(self, prefab, processed=None):
         """Build the prefab hierarchy by adding children to each prefab"""
@@ -307,10 +456,25 @@ class InteractionGraph:
             processed.add(prefab)
             results = set()
             current_results = self._process_prefab_interactions(prefab)
-            results.update(current_results)
+
+            # Track what we've already added to avoid duplicates
+            existing_items = {(item.name, item.event) for item in self.interactables} | {
+                (item.name, item.event) for item in self.interactors}
+
+            # Only add items we haven't seen before
+            for result in current_results:
+                key = (result.name, result.event)
+                if key not in existing_items:
+                    results.add(result)
+                    existing_items.add(key)
+
             for child_prefab in prefab.children:
                 child_results = process_prefab_hierarchy(child_prefab, processed)
-                results.update(child_results)
+                for result in child_results:
+                    key = (result.name, result.event)
+                    if key not in existing_items:
+                        results.add(result)
+                        existing_items.add(key)
             return results
 
         processed_prefabs = set()
@@ -327,111 +491,146 @@ class InteractionGraph:
                         self.interactors.add(tmp_result)
 
     def get_scene_interactions(self):
-        """Get the interactables and interactors in the scene under test"""
-        processed_names = {obj.name for obj in self.interactables} | {obj.name for obj in self.interactors}
+        """
+        Get the interactables and interactors in the scene under test
+        Returns: Two sets of interactable and interactor objects
+        """
+        # Track names and events we've already processed to avoid duplicates
+        processed = {(obj.name, obj.event) for obj in self.interactables} | {
+            (obj.name, obj.event) for obj in self.interactors}
+
         for script in self.scene_scripts:
             for interaction in self.interaction_events_3d:
                 if interaction.guid != script.m_Script.get("guid"):
                     continue
+                # Get the file id of the game object linked to the interactive script
                 obj_id = script.m_GameObject.get("fileID")
-                obj_name = utils.get_prefab_name(self.scene_doc, obj_id)
-                if not obj_name or obj_name in processed_names:
+
+                # First try to get the scene-level instance name
+                obj_name = None
+                for instance in self.scene_doc.filter(class_names=("PrefabInstance",)):
+                    if instance.anchor == obj_id:
+                        for mod in instance.m_Modification["m_Modifications"]:
+                            if mod.get("propertyPath") == "m_Name":
+                                obj_name = mod.get("value")
+                                break
+                        break
+
+                # If no scene instance name found, try other methods
+                if not obj_name:
+                    obj_name = utils.get_prefab_instance_name(self.scene_doc, obj_id)
+                if not obj_name:
+                    obj_name = utils.get_object_name(self.scene_doc, obj_id)
+
+                if not obj_name:
                     continue
-                if interaction.role == InteractionRole.INTERACTOR:
-                    interactor = Interactor(
-                        name=obj_name,
-                        script=interaction.file,
-                        event=interaction.event,
-                        layer=self.get_interaction_layer(obj_id=obj_id), )
-                    self.interactors.add(interactor)
-                    processed_names.add(obj_name)
-                elif interaction.role == InteractionRole.INTERACTABLE:
-                    interactable = Interactable(
-                        name=obj_name,
-                        script=interaction.file,
-                        type=InteractableType.THREE_D,
-                        event=interaction.event,
-                        layer=self.get_interaction_layer(obj_id=obj_id), )
-                    self.interactables.add(interactable)
-                    processed_names.add(obj_name)
 
-    def get_ui_objects(self):
-        """Get all UI objects from the scene and prefabs"""
-        default_ui_interaction_layer = -2
-        processed_names = {obj.name for obj in self.interactables} | {obj.name for obj in self.interactors}
-
-        def process_ui_prefab(prefab, processed_prefabs):
-            """Process a UI prefab and its nested prefabs"""
-            if prefab in processed_prefabs:
-                return
-            processed_prefabs.add(prefab)
-
-            # Load the prefab document
-            prefab_doc = UnityDocument.load_yaml(prefab.file)
-
-            # Get all script GUIDs from the prefab
-            script_guids = {script.m_Script.get("guid") for script in
-                            prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
-
-            # Check for UI interactions in this prefab
-            for interaction in self.interaction_events_ui:
-                if interaction.guid not in script_guids:
-                    continue
                 if interaction.role == InteractionRole.INTERACTABLE:
-                    name = self.get_top_level_prefab_name(prefab)
-                    if not name or name in processed_names:
-                        continue
-                    ui = Interactable(
-                        name=name,
-                        script=interaction.file,
-                        type=InteractableType.TWO_D,
-                        event=interaction.event,
-                        layer=default_ui_interaction_layer
-                    )
-                    self.interactables.add(ui)
-                    processed_names.add(name)
+                    if (obj_name, interaction.event) not in processed:
+                        interactable = Interactable(
+                            name=obj_name,
+                            script=interaction.file,
+                            type=InteractableType.THREE_D,
+                            event=interaction.event,
+                            layer=self.get_interaction_layer(obj_id=obj_id), )
+                        self.interactables.add(interactable)
+                        processed.add((obj_name, interaction.event))
+                        if utils.has_precondition(self.scene_doc) and (obj_name, InteractionEvent.ACTIVATE) not in processed:
+                            interactable = Interactable(
+                                name=obj_name,
+                                script=interaction.file,
+                                type=InteractableType.THREE_D,
+                                event=InteractionEvent.ACTIVATE,
+                                layer=self.get_interaction_layer(obj_id=obj_id), )
+                            self.interactables.add(interactable)
+                            processed.add((obj_name, InteractionEvent.ACTIVATE))
+                elif interaction.role == InteractionRole.INTERACTOR:
+                    if (obj_name, interaction.event) not in processed:
+                        interactor = Interactor(
+                            name=obj_name,
+                            script=interaction.file,
+                            event=interaction.event,
+                            layer=self.get_interaction_layer(obj_id=obj_id), )
+                        self.interactors.add(interactor)
+                        processed.add((obj_name, interaction.event))
 
-            # Process nested prefabs
-            for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
-                nested_guid = nested_entry.m_SourcePrefab.get("guid")
-                if nested_guid and nested_guid in self.asset_prefab_guids:
-                    nested_prefab = Prefab(
-                        name=utils.get_prefab_instance_name(prefab_doc, nested_entry.anchor),
-                        guid=nested_guid,
-                        file=self.asset_prefab_guids[nested_guid].parent / self.asset_prefab_guids[nested_guid].stem,
-                        type=PrefabType.SCENE,
-                        interaction_layer=default_ui_interaction_layer
-                    )
-                    process_ui_prefab(nested_prefab, processed_prefabs)
+    # def get_ui_objects(self):
+    #     """Get all UI objects from the scene and prefabs"""
+    #     default_ui_interaction_layer = -2
+    #     processed_names = {obj.name for obj in self.interactables} | {obj.name for obj in self.interactors}
 
-        # Process scene UI objects
-        for script in self.scene_scripts:
-            linked_object = script.m_GameObject["fileID"]
-            name = utils.get_object_name(self.scene_doc, linked_object)
-            if not name:
-                name = self.get_top_level_prefab_name(linked_object)
-            if not name or name in processed_names:
-                continue
-            for interaction in self.interaction_events_ui:
-                if interaction.guid != script.m_Script.get("guid"):
-                    continue
-                if interaction.role == InteractionRole.INTERACTABLE:
-                    ui = Interactable(
-                        name=name,
-                        script=interaction.file,
-                        type=InteractableType.TWO_D,
-                        event=interaction.event,
-                        layer=default_ui_interaction_layer
-                    )
-                    self.interactables.add(ui)
-                    processed_names.add(name)
+    #     def process_ui_prefab(prefab, processed_prefabs):
+    #         """Process a UI prefab and its nested prefabs"""
+    #         if prefab in processed_prefabs:
+    #             return
+    #         processed_prefabs.add(prefab)
 
-        # Process prefab UI objects
-        processed_prefabs = set()
-        for prefab_source in self.get_scene_prefabs():
-            if prefab_source in processed_prefabs:
-                continue
-            process_ui_prefab(prefab_source, processed_prefabs)
+    #         # Load the prefab document
+    #         prefab_doc = UnityDocument.load_yaml(prefab.file)
+
+    #         # Get all script GUIDs from the prefab
+    #         script_guids = {script.m_Script.get("guid") for script in
+    #                         prefab_doc.filter(class_names=("MonoBehaviour",), attributes=("m_Script",))}
+
+    #         # Check for UI interactions in this prefab
+    #         for interaction in self.interaction_events_ui:
+    #             if interaction.guid not in script_guids:
+    #                 continue
+    #             if interaction.role == InteractionRole.INTERACTABLE:
+    #                 name = self.get_top_level_prefab_name(prefab)
+    #                 if not name or name in processed_names:
+    #                     continue
+    #                 ui = Interactable(
+    #                     name=name,
+    #                     script=interaction.file,
+    #                     type=InteractableType.TWO_D,
+    #                     event=interaction.event,
+    #                     layer=default_ui_interaction_layer
+    #                 )
+    #                 self.interactables.add(ui)
+    #                 processed_names.add(name)
+
+    #         # Process nested prefabs
+    #         for nested_entry in prefab_doc.filter(class_names=("PrefabInstance",)):
+    #             nested_guid = nested_entry.m_SourcePrefab.get("guid")
+    #             if nested_guid and nested_guid in self.asset_prefab_guids:
+    #                 nested_prefab = Prefab(
+    #                     name=utils.get_prefab_instance_name(prefab_doc, nested_entry.anchor),
+    #                     guid=nested_guid,
+    #                     file=self.asset_prefab_guids[nested_guid].parent / self.asset_prefab_guids[nested_guid].stem,
+    #                     type=PrefabType.SCENE,
+    #                     interaction_layer=default_ui_interaction_layer
+    #                 )
+    #                 process_ui_prefab(nested_prefab, processed_prefabs)
+
+    #     # Process scene UI objects
+    #     for script in self.scene_scripts:
+    #         linked_object = script.m_GameObject["fileID"]
+    #         name = utils.get_object_name(self.scene_doc, linked_object)
+    #         if not name:
+    #             name = self.get_top_level_prefab_name(linked_object)
+    #         if not name or name in processed_names:
+    #             continue
+    #         for interaction in self.interaction_events_ui:
+    #             if interaction.guid != script.m_Script.get("guid"):
+    #                 continue
+    #             if interaction.role == InteractionRole.INTERACTABLE:
+    #                 ui = Interactable(
+    #                     name=name,
+    #                     script=interaction.file,
+    #                     type=InteractableType.TWO_D,
+    #                     event=interaction.event,
+    #                     layer=default_ui_interaction_layer
+    #                 )
+    #                 self.interactables.add(ui)
+    #                 processed_names.add(name)
+
+    #     # Process prefab UI objects
+    #     processed_prefabs = set()
+    #     for prefab_source in self.get_scene_prefabs():
+    #         if prefab_source in processed_prefabs:
+    #             continue
+    #         process_ui_prefab(prefab_source, processed_prefabs)
 
     def build_graph(self):
         """Build the interaction graph"""
@@ -513,15 +712,22 @@ class InteractionGraph:
     def test(self):
         self.get_interactive_prefabs()
         self.get_scene_interactions()
-        # self.get_ui_objects()
-        print(len(self.interactables))
-        print(len(self.interactors))
-        # self.build_graph()
-        self.sort_graph_results()
+        print("=== Interactables ===")
+        for interactable in sorted(self.interactables, key=lambda x: x.name):
+            print(f"Name: {interactable.name}, Event: {interactable.event}")
+        print("\n=== Interactors ===")
+        for interactor in sorted(self.interactors, key=lambda x: x.name):
+            print(f"Name: {interactor.name}, Event: {interactor.event}")
+        print(f"\nTotal Interactables: {len(self.interactables)}")
+        print(f"Total Interactors: {len(self.interactors)}")
+        self.build_graph()
 
 
 if __name__ == '__main__':
-    project_root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/VR Template")
-    scene_under_test = project_root / "Assets/Scenes/SampleScene.unity"
+    # project_root = Path("/Users/ruizhengu/Projects/InteractoBot/envs/VR Template")
+    project_root = Path(
+        "/Users/ruizhengu/Projects/XUIBench/XRI Starter Assets/")
+    # scene_under_test = project_root / "Assets/Scenes/SampleScene.unity"
+    scene_under_test = project_root / "Assets/Samples/XR Interaction Toolkit/3.1.1/Starter Assets/DemoScene.unity"
     graph = InteractionGraph(project_root, scene_under_test)
     graph.test()

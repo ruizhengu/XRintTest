@@ -129,3 +129,28 @@ def get_file_guid(file_name):
         if guid_match:
             return guid_match.group(1)
     return None
+
+
+def get_object_path(doc, obj_id):
+    """Get the full path of an object in the scene hierarchy"""
+    if entry := get_entry_by_anchor(doc, obj_id):
+        # Start with the current object's name
+        path_parts = []
+        if hasattr(entry, "m_Name"):
+            path_parts.append(entry.m_Name)
+
+        # Traverse up the hierarchy
+        current_entry = entry
+        while hasattr(current_entry, "m_Father"):
+            parent_id = current_entry.m_Father.get("fileID")
+            if parent_entry := get_entry_by_anchor(doc, parent_id):
+                if hasattr(parent_entry, "m_Name"):
+                    path_parts.append(parent_entry.m_Name)
+                current_entry = parent_entry
+            else:
+                break
+
+        # Reverse the path parts to get root-to-leaf order
+        path_parts.reverse()
+        return "/".join(path_parts) if path_parts else None
+    return None

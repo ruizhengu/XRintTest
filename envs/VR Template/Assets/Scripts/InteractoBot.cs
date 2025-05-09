@@ -68,21 +68,21 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         // Handle different exploration states
-        switch (currentExplorationState)
-        {
-            case ExplorationState.Navigation:
-                Navigation();
-                break;
-            case ExplorationState.ControllerMovement:
-                ControllerMovement();
-                break;
-            case ExplorationState.ThreeDInteraction:
-                ThreeDInteraction();
-                break;
-            case ExplorationState.TwoDInteraction:
-                TwoDInteraction();
-                break;
-        }
+        // switch (currentExplorationState)
+        // {
+        //     case ExplorationState.Navigation:
+        //         Navigation();
+        //         break;
+        //     case ExplorationState.ControllerMovement:
+        //         ControllerMovement();
+        //         break;
+        //     case ExplorationState.ThreeDInteraction:
+        //         ThreeDInteraction();
+        //         break;
+        //     case ExplorationState.TwoDInteraction:
+        //         TwoDInteraction();
+        //         break;
+        // }
     }
 
     /// <summary>
@@ -191,46 +191,6 @@ public class InteractoBot : MonoBehaviour
                         bool intersection = Utils.GetIntersected(closestInteractable.GetObject(), rightController);
                         closestInteractable.SetIntersected(intersection);
                         StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
-
-                        // // Get all colliders from the interactable and its children
-                        // Collider[] interactableColliders = closestInteractable.GetObject().GetComponentsInChildren<Collider>();
-
-                        // if (interactableColliders.Length > 0)
-                        // {
-                        //     // Create a combined bounds that encompasses all colliders
-                        //     Bounds combinedBounds = interactableColliders[0].bounds;
-                        //     for (int i = 1; i < interactableColliders.Length; i++)
-                        //     {
-                        //         combinedBounds.Encapsulate(interactableColliders[i].bounds);
-                        //     }
-
-                        //     // Get the actual collider from the controller
-                        //     Collider controllerCollider = rightController.GetComponent<Collider>();
-                        //     if (controllerCollider != null)
-                        //     {
-                        //         if (combinedBounds.Intersects(controllerCollider.bounds))
-                        //         {
-                        //             Debug.Log($"Controller intersecting with {closestInteractable.GetObject().name} bounds");
-                        //             StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
-                        //         }
-                        //         else
-                        //         {
-                        //             Debug.Log($"Controller not intersecting with {closestInteractable.GetObject().name} bounds, adjusting position");
-                        //             // Move controller closer to ensure intersection
-                        //             Vector3 direction = (closestInteractable.GetObject().transform.position - rightController.transform.position).normalized;
-                        //             MoveControllerInDirection(direction);
-                        //             isControllerMoving = true;
-                        //         }
-                        //     }
-                        //     else
-                        //     {
-                        //         Debug.LogWarning($"No collider found on the controller");
-                        //     }
-                        // }
-                        // else
-                        // {
-                        //     Debug.LogWarning($"No colliders found on {closestInteractable.GetObject().name} or its children");
-                        // }
                     }
                 }
             }
@@ -443,8 +403,6 @@ public class InteractoBot : MonoBehaviour
         float minDistance = Mathf.Infinity;
         foreach (InteractableObject interactable in interactableObjects)
         {
-            // GameObject interactable = GameObject.Find(interactionEvent.interactable);
-            // InteractableObject interactable = entry.Value;
             if (!interactable.GetVisited())
             {
                 float distance = Vector3.Distance(transform.position, interactable.GetObject().transform.position);
@@ -598,5 +556,31 @@ public class InteractoBot : MonoBehaviour
             triggerActionCount = 0; // Reset trigger action count when leaving 2D interaction state
         }
         currentExplorationState = newState;
+    }
+
+    private void GetComponentAttributes()
+    {
+        GameObject blaster = GameObject.Find("Blaster").transform.parent.gameObject;
+        Debug.Log(blaster.GetComponent<XRGrabInteractable>());
+        var grabInteractable = blaster.GetComponent<XRGrabInteractable>();
+        if (grabInteractable != null)
+        {
+            // Get the activated event
+            var activatedEvent = grabInteractable.activated;
+            Debug.Log($"Blaster Activate Event: {activatedEvent}");
+            activatedEvent.AddListener((args) =>
+            {
+                Debug.Log("Blaster activated event was fired!");
+            });
+            // You can also check if there are any listeners attached to this event
+            var hasListeners = activatedEvent.GetPersistentEventCount() > 0;
+            Debug.Log($"Blaster Activate Event has listeners: {hasListeners}");
+            for (int i = 0; i < activatedEvent.GetPersistentEventCount(); i++)
+            {
+                var target = activatedEvent.GetPersistentTarget(i);
+                var method = activatedEvent.GetPersistentMethodName(i);
+                Debug.Log($"Activate Listener {i}: Target={target}, Method={method}");
+            }
+        }
     }
 }

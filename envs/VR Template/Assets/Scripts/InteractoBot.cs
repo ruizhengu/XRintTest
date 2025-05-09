@@ -68,21 +68,21 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         // Handle different exploration states
-        // switch (currentExplorationState)
-        // {
-        //     case ExplorationState.Navigation:
-        //         Navigation();
-        //         break;
-        //     case ExplorationState.ControllerMovement:
-        //         ControllerMovement();
-        //         break;
-        //     case ExplorationState.ThreeDInteraction:
-        //         ThreeDInteraction();
-        //         break;
-        //     case ExplorationState.TwoDInteraction:
-        //         TwoDInteraction();
-        //         break;
-        // }
+        switch (currentExplorationState)
+        {
+            case ExplorationState.Navigation:
+                Navigation();
+                break;
+            case ExplorationState.ControllerMovement:
+                ControllerMovement();
+                break;
+            case ExplorationState.ThreeDInteraction:
+                ThreeDInteraction();
+                break;
+            case ExplorationState.TwoDInteraction:
+                TwoDInteraction();
+                break;
+        }
     }
 
     /// <summary>
@@ -188,12 +188,50 @@ public class InteractoBot : MonoBehaviour
                     current3DInteractionPattern = string.Join(",", events);
                     if (closestInteractable.GetObjectType() == "3d")
                     {
+                        bool intersection = Utils.GetIntersected(closestInteractable.GetObject(), rightController);
+                        closestInteractable.SetIntersected(intersection);
                         StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
+
+                        // // Get all colliders from the interactable and its children
+                        // Collider[] interactableColliders = closestInteractable.GetObject().GetComponentsInChildren<Collider>();
+
+                        // if (interactableColliders.Length > 0)
+                        // {
+                        //     // Create a combined bounds that encompasses all colliders
+                        //     Bounds combinedBounds = interactableColliders[0].bounds;
+                        //     for (int i = 1; i < interactableColliders.Length; i++)
+                        //     {
+                        //         combinedBounds.Encapsulate(interactableColliders[i].bounds);
+                        //     }
+
+                        //     // Get the actual collider from the controller
+                        //     Collider controllerCollider = rightController.GetComponent<Collider>();
+                        //     if (controllerCollider != null)
+                        //     {
+                        //         if (combinedBounds.Intersects(controllerCollider.bounds))
+                        //         {
+                        //             Debug.Log($"Controller intersecting with {closestInteractable.GetObject().name} bounds");
+                        //             StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
+                        //         }
+                        //         else
+                        //         {
+                        //             Debug.Log($"Controller not intersecting with {closestInteractable.GetObject().name} bounds, adjusting position");
+                        //             // Move controller closer to ensure intersection
+                        //             Vector3 direction = (closestInteractable.GetObject().transform.position - rightController.transform.position).normalized;
+                        //             MoveControllerInDirection(direction);
+                        //             isControllerMoving = true;
+                        //         }
+                        //     }
+                        //     else
+                        //     {
+                        //         Debug.LogWarning($"No collider found on the controller");
+                        //     }
+                        // }
+                        // else
+                        // {
+                        //     Debug.LogWarning($"No colliders found on {closestInteractable.GetObject().name} or its children");
+                        // }
                     }
-                    // else if (closestInteractable.GetObjectType() == "2d")
-                    // {
-                    //     StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
-                    // }
                 }
             }
         }
@@ -432,7 +470,7 @@ public class InteractoBot : MonoBehaviour
                 baseInteractable.selectExited.AddListener(OnSelectExited);
                 baseInteractable.activated.AddListener(OnActivated);
                 baseInteractable.deactivated.AddListener(OnDeactivated);
-                baseInteractable.hoverEntered.AddListener(OnHoverEntered);
+                // baseInteractable.hoverEntered.AddListener(OnHoverEntered);
             }
         }
         // Register EventTrigger listeners for UI elements

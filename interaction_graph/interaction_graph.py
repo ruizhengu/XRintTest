@@ -577,15 +577,15 @@ class InteractionGraph:
                 "type": interactable.type,
                 "event_type": interactable.event
             })
-            for socket in socket_interactors:
-                if socket.layer == interactable.layer:
-                    results.append({
-                        "interactor": socket.name,
-                        "condition": [],
-                        "interactable": interactable.name,
-                        "type": InteractionEvent.SOCKET,
-                        "event_type": interactable.event
-                    })
+            # for socket in socket_interactors:
+            #     if socket.layer == interactable.layer:
+            #         results.append({
+            #             "interactor": socket.name,
+            #             "condition": [],
+            #             "interactable": interactable.name,
+            #             "type": InteractionEvent.SOCKET,
+            #             "event_type": interactable.event
+            #         })
         interactable_names = {}
         for result in results:
             name = result["interactable"]
@@ -623,8 +623,21 @@ if __name__ == '__main__':
     # scene_under_test = project_root / "Assets/Samples/XR Interaction Toolkit/3.1.1/Starter Assets/DemoScene.unity"
 
     # VR-Game-Jam-Template
-    project_root = Path("/Users/ruizhengu/Projects/XUIBench/VR-Game-Jam-Template/")
-    scene_under_test = project_root / "Assets/Scenes/2 Game Scene.unity"
+    # project_root = Path("/Users/ruizhengu/Projects/XUIBench/VR-Game-Jam-Template/")
+    # scene_under_test = project_root / "Assets/Scenes/2 Game Scene.unity"
 
+    # Escape Room: Prototype
+    # project_root = Path("/Users/ruizhengu/Projects/XUIBench/Escape Room/")
+    # scene_under_test = project_root / "Assets/VR Beginner/Scenes/Final/PrototypeScene.unity"
+
+    # XRI Examples
+    # project_root = Path("/Users/ruizhengu/Projects/XUIBench/XRI Examples/")
+    # scene_under_test = project_root / "Assets/XRI_Examples/Scenes/XRI_Examples_Main.unity"
+
+    # XRI Starter Kit
+    project_root = Path("/Users/ruizhengu/Projects/XUIBench/XRI Starter Kit/")
+    scene_under_test = project_root / "Assets/XRI Starter Kit/XRI Starter Kit.unity"
+
+    # Load the scene
     graph = InteractionGraph(project_root, scene_under_test)
     graph.test()

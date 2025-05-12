@@ -68,21 +68,21 @@ public class InteractoBot : MonoBehaviour
     {
         Time.timeScale = gameSpeed;
         // Handle different exploration states
-        // switch (currentExplorationState)
-        // {
-        //     case ExplorationState.Navigation:
-        //         Navigation();
-        //         break;
-        //     case ExplorationState.ControllerMovement:
-        //         ControllerMovement();
-        //         break;
-        //     case ExplorationState.ThreeDInteraction:
-        //         ThreeDInteraction();
-        //         break;
-        //     case ExplorationState.TwoDInteraction:
-        //         TwoDInteraction();
-        //         break;
-        // }
+        switch (currentExplorationState)
+        {
+            case ExplorationState.Navigation:
+                Navigation();
+                break;
+            case ExplorationState.ControllerMovement:
+                ControllerMovement();
+                break;
+            case ExplorationState.ThreeDInteraction:
+                ThreeDInteraction();
+                break;
+            case ExplorationState.TwoDInteraction:
+                TwoDInteraction();
+                break;
+        }
     }
 
     /// <summary>
@@ -213,11 +213,11 @@ public class InteractoBot : MonoBehaviour
         // Normal grip action
         else if (current3DInteractionPattern.Contains("select"))
         {
-            if (gripActionCount < 1)
+            if (gripActionCount < 2)
             {
                 ControllerGripAction();
                 gripActionCount++;
-                if (gripActionCount >= 1)
+                if (gripActionCount >= 2)
                 {
                     StartCoroutine(TransitionToState(ExplorationState.Navigation));
                 }

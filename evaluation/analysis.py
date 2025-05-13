@@ -11,7 +11,7 @@ time_points = [60, 120, 180, 240, 300]
 labels = [1, 2, 3, 4, 5]
 
 plt.figure(figsize=(8, 5))
-plt.plot(df["Time"], df["Coverage"], marker='o', linestyle='-', color='b')
+plt.plot(df["Time"], df["Coverage"], linestyle='-', color='teal', linewidth=2)
 plt.ylim(0, 100)
 plt.gca().yaxis.set_major_formatter(PercentFormatter())
 

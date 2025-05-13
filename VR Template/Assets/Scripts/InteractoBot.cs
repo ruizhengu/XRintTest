@@ -113,8 +113,7 @@ public class InteractoBot : MonoBehaviour
             }
             Debug.Log("Test End");
             Debug.Log("Number of Interacted Interactables: " + Utils.CountInteracted(interactableObjects) + " / " + interactionCount);
-            Debug.Log("Total Time: " + totalTime);
-            this.enabled = false;
+            return;
         }
         ResetControllerPosition();
 

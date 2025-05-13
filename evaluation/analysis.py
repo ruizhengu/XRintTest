@@ -6,10 +6,11 @@ from matplotlib.ticker import PercentFormatter
 scenes = [
     "VR Template",
     "XRI Assets",
-    "EscapeProto"
+    "EscapeProto",
+    "GameJam"
 ]
 
-target_scene = scenes[2]
+target_scene = scenes[3]
 # Read both sheets
 df_interactobot = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Interactobot')
 df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Interactobot_rand')

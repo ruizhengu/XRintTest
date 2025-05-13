@@ -39,6 +39,9 @@ public class InteractoBot : MonoBehaviour
     private bool isGripHeld = false; // Track if grip is currently held
     private int gripActionCount = 0; // Track number of grip actions
     private int combinedActionCount = 0; // Track number of combined actions
+    private float reportInterval = 60f; // Report interval in seconds
+    private float reportTimer = 0f; // Timer for report interval
+    private float totalTime = 0f; // Total time of the test
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -66,7 +69,15 @@ public class InteractoBot : MonoBehaviour
 
     void Update()
     {
-        Time.timeScale = gameSpeed;
+        // Time.timeScale = gameSpeed;
+        reportTimer += Time.deltaTime;
+        totalTime += Time.deltaTime;
+        if (reportTimer >= reportInterval)
+        {
+            int currentInteracted = Utils.CountInteracted(interactableObjects);
+            Debug.Log("Current Interacted: " + currentInteracted + " / " + interactionCount + " (" + (float)currentInteracted / (float)interactionCount * 100 + "%)");
+            reportTimer = 0f;
+        }
         // Handle different exploration states
         switch (currentExplorationState)
         {
@@ -100,7 +111,8 @@ public class InteractoBot : MonoBehaviour
             }
             Debug.Log("Test End");
             Debug.Log("Number of Interacted Interactables: " + Utils.CountInteracted(interactableObjects) + " / " + interactionCount);
-            return;
+            Debug.Log("Total Time: " + totalTime);
+            this.enabled = false;
         }
         ResetControllerPosition();
 
@@ -188,12 +200,10 @@ public class InteractoBot : MonoBehaviour
                     current3DInteractionPattern = string.Join(",", events);
                     if (closestInteractable.GetObjectType() == "3d")
                     {
+                        bool intersection = Utils.GetIntersected(closestInteractable.GetObject(), rightController);
+                        closestInteractable.SetIntersected(intersection);
                         StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
                     }
-                    // else if (closestInteractable.GetObjectType() == "2d")
-                    // {
-                    //     StartCoroutine(TransitionToState(ExplorationState.TwoDInteraction));
-                    // }
                 }
             }
         }
@@ -215,11 +225,11 @@ public class InteractoBot : MonoBehaviour
         // Normal grip action
         else if (current3DInteractionPattern.Contains("select"))
         {
-            if (gripActionCount < 1)
+            if (gripActionCount < 2)
             {
                 ControllerGripAction();
                 gripActionCount++;
-                if (gripActionCount >= 1)
+                if (gripActionCount >= 2)
                 {
                     StartCoroutine(TransitionToState(ExplorationState.Navigation));
                 }
@@ -405,8 +415,6 @@ public class InteractoBot : MonoBehaviour
         float minDistance = Mathf.Infinity;
         foreach (InteractableObject interactable in interactableObjects)
         {
-            // GameObject interactable = GameObject.Find(interactionEvent.interactable);
-            // InteractableObject interactable = entry.Value;
             if (!interactable.GetVisited())
             {
                 float distance = Vector3.Distance(transform.position, interactable.GetObject().transform.position);
@@ -432,6 +440,7 @@ public class InteractoBot : MonoBehaviour
                 baseInteractable.selectExited.AddListener(OnSelectExited);
                 baseInteractable.activated.AddListener(OnActivated);
                 baseInteractable.deactivated.AddListener(OnDeactivated);
+                // baseInteractable.hoverEntered.AddListener(OnHoverEntered);
             }
         }
         // Register EventTrigger listeners for UI elements
@@ -457,6 +466,11 @@ public class InteractoBot : MonoBehaviour
                 break;
             }
         }
+    }
+    private void OnHoverEntered(HoverEnterEventArgs args)
+    {
+        var xrInteractable = args.interactableObject;
+        Debug.Log("OnHoverEntered: " + xrInteractable.transform.name);
     }
 
     private void OnSelectEntered(SelectEnterEventArgs args)
@@ -554,5 +568,31 @@ public class InteractoBot : MonoBehaviour
             triggerActionCount = 0; // Reset trigger action count when leaving 2D interaction state
         }
         currentExplorationState = newState;
+    }
+
+    private void GetComponentAttributes()
+    {
+        GameObject blaster = GameObject.Find("Blaster").transform.parent.gameObject;
+        Debug.Log(blaster.GetComponent<XRGrabInteractable>());
+        var grabInteractable = blaster.GetComponent<XRGrabInteractable>();
+        if (grabInteractable != null)
+        {
+            // Get the activated event
+            var activatedEvent = grabInteractable.activated;
+            Debug.Log($"Blaster Activate Event: {activatedEvent}");
+            activatedEvent.AddListener((args) =>
+            {
+                Debug.Log("Blaster activated event was fired!");
+            });
+            // You can also check if there are any listeners attached to this event
+            var hasListeners = activatedEvent.GetPersistentEventCount() > 0;
+            Debug.Log($"Blaster Activate Event has listeners: {hasListeners}");
+            for (int i = 0; i < activatedEvent.GetPersistentEventCount(); i++)
+            {
+                var target = activatedEvent.GetPersistentTarget(i);
+                var method = activatedEvent.GetPersistentMethodName(i);
+                Debug.Log($"Activate Listener {i}: Target={target}, Method={method}");
+            }
+        }
     }
 }

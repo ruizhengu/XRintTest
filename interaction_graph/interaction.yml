@@ -3,8 +3,8 @@ interactables:
     - XRBaseInteractable
   select:
     - XRGrabInteractable
+    - XROffsetGrabbable
     - XRPokeFilter
-    - ClimbInteractable
   custom:
     - XRKnob
 interactors:

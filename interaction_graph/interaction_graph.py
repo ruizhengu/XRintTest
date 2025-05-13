@@ -635,8 +635,12 @@ if __name__ == '__main__':
     # scene_under_test = project_root / "Assets/XRI_Examples/Scenes/XRI_Examples_Main.unity"
 
     # XRI Starter Kit
-    project_root = Path("/Users/ruizhengu/Projects/XUIBench/XRI Starter Kit/")
-    scene_under_test = project_root / "Assets/XRI Starter Kit/XRI Starter Kit.unity"
+    # project_root = Path("/Users/ruizhengu/Projects/XUIBench/XRI Starter Kit/")
+    # scene_under_test = project_root / "Assets/XRI Starter Kit/XRI Starter Kit.unity"
+
+    # Escape Room: Prototype
+    project_root = Path("/Users/ruizhengu/Projects/XUIBench/Escape Room/")
+    scene_under_test = project_root / "Assets/VR Beginner/Scenes/Final/EscapeRoom.unity"
 
     # Load the scene
     graph = InteractionGraph(project_root, scene_under_test)

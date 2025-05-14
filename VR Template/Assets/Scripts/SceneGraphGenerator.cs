@@ -4,15 +4,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
-
-[System.Serializable]
-public class InteractionResult
-{
-    public string interactor;
-    public List<string> condition;
-    public string interactable;
-    public string interaction_type;
-}
+using Newtonsoft.Json;
 
 public class SceneGraphGenerator : EditorWindow
 {
@@ -20,26 +12,26 @@ public class SceneGraphGenerator : EditorWindow
     public static void GenerateSceneGraph()
     {
         GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-        List<InteractionResult> results = new List<InteractionResult>();
+        List<InteractionEvent> results = new List<InteractionEvent>();
 
         foreach (GameObject rootObj in rootObjects)
         {
             ProcessGameObject(rootObj, results);
         }
 
-        string json = JsonUtility.ToJson(new SerializationWrapper<InteractionResult>(results), true);
+        string json = JsonConvert.SerializeObject(results, Formatting.Indented);
         string path = Path.Combine(Application.dataPath, "Scripts/scene_graph.json");
         File.WriteAllText(path, json);
         Debug.Log($"Interaction results exported to {path}");
     }
 
-    private static void ProcessGameObject(GameObject obj, List<InteractionResult> results)
+    private static void ProcessGameObject(GameObject obj, List<InteractionEvent> results)
     {
         // Check grab interactions
         var grabInteractable = obj.GetComponent<XRGrabInteractable>();
         if (grabInteractable != null)
         {
-            var result = new InteractionResult
+            var result = new InteractionEvent
             {
                 interactor = "XR Origin (XR Rig)",
                 condition = new List<string>(),
@@ -52,7 +44,7 @@ public class SceneGraphGenerator : EditorWindow
             bool triggerInteraction = activatedEvent.GetPersistentEventCount() > 0;
             if (triggerInteraction)
             {
-                var triggerResult = new InteractionResult
+                var triggerResult = new InteractionEvent
                 {
                     interactor = "XR Origin (XR Rig)",
                     condition = new List<string> { "grab" },
@@ -83,13 +75,5 @@ public class SceneGraphGenerator : EditorWindow
         }
 
         return componentNames;
-    }
-
-    // Helper for serializing a list as a JSON array
-    [System.Serializable]
-    private class SerializationWrapper<T>
-    {
-        public List<T> items;
-        public SerializationWrapper(List<T> items) { this.items = items; }
     }
 }

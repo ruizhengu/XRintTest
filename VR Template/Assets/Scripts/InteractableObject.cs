@@ -7,85 +7,132 @@ using System.Runtime.InteropServices;
 
 public class InteractableObject
 {
-  GameObject interactable;
-  string name;
-  bool interacted;
-  bool intersected;
-  bool visited;
-  string type;
-  List<string> events;
-  public InteractableObject(string name, GameObject go, string type, List<string> events)
+  public GameObject Interactable { get; set; }
+
+  public string Name { get; set; }
+
+  public bool Interacted { get; set; }
+
+  public List<string> Events { get; set; }
+
+  public bool Intersected { get; set; }
+
+  public bool Visited { get; set; }
+
+  public bool IsTrigger { get; set; }
+
+  public bool Triggered { get; set; }
+
+  public bool Grabbed { get; set; }
+
+  public InteractableObject(string name, GameObject go, bool isTrigger, List<string> events)
   {
-    this.name = name;
-    this.interactable = go;
-    this.type = type;
-    this.visited = false;
-    this.interacted = false;
-    this.events = events;
-    this.intersected = false;
+    this.Name = name;
+    this.Interactable = go;
+    this.IsTrigger = isTrigger;
+    this.Visited = false;
+    this.Interacted = false;
+    this.Intersected = false;
+    this.Events = events;
   }
 
-  public string GetName()
-  {
-    return this.name;
-  }
+  // public string Name { get; set; }
 
-  public void SetName(string name)
-  {
-    this.name = name;
-  }
+  // public bool Interacted { get; set; }
 
-  public GameObject GetObject()
-  {
-    return this.interactable;
-  }
+  // public bool Intersected { get; set; }
 
-  public void SetGameObject(GameObject go)
-  {
-    this.interactable = go;
-  }
+  // public bool Visited { get; set; }
 
-  public void SetInteracted(bool flag)
-  {
-    this.interacted = flag;
-  }
-  public bool GetInteracted()
-  {
-    return this.interacted;
-  }
+  // public bool IsTrigger { get; set; }
 
-  public void SetVisited(bool flag)
-  {
-    this.visited = flag;
-  }
+  // public bool Triggered { get; set; }
 
-  public bool GetVisited()
-  {
-    return this.visited;
-  }
+  // public bool Grabbed { get; set; }
 
-  public String GetObjectType()
-  {
-    return this.type;
-  }
+  // public List<string> Events { get; set; }
 
-  public List<string> GetEvents()
-  {
-    return this.events;
-  }
+  // public void SetEvents(List<string> events)
+  // {
+  //   this.events = events;
+  // }
 
-  public void SetEvents(List<string> events)
-  {
-    this.events = events;
-  }
+  // public List<string> GetEvents()
+  // {
+  //   return this.events;
+  // }
 
-  public void SetIntersected(bool flag)
-  {
-    this.intersected = flag;
-  }
+  // public void SetName(string name)
+  // {
+  //   this.name = name;
+  // }
 
-  public bool GetIntersected()
-  {
-    return this.intersected;
-  }
+  // public GameObject GetObject()
+  // {
+  //   return this.interactable;
+  // }
+
+  // public void SetGameObject(GameObject go)
+  // {
+  //   this.interactable = go;
+  // }
+
+  // public void SetInteracted(bool flag)
+  // {
+  //   this.interacted = flag;
+  // }
+  // public bool GetInteracted()
+  // {
+  //   return this.interacted;
+  // }
+
+  // public void SetVisited(bool flag)
+  // {
+  //   this.visited = flag;
+  // }
+
+  // public bool GetVisited()
+  // {
+  //   return this.visited;
+  // }
+
+  // public void SetIntersected(bool flag)
+  // {
+  //   this.intersected = flag;
+  // }
+
+  // public bool GetIntersected()
+  // {
+  //   return this.intersected;
+  // }
+
+  // public bool GetIsTrigger()
+  // {
+  //   return this.isTrigger;
+  // }
+
+  // public void SetIsTrigger(bool flag)
+  // {
+  //   this.isTrigger = flag;
+  // }
+
+  // public bool GetTriggered()
+  // {
+  //   return this.triggered;
+  // }
+
+  // public bool GetGrabbed()
+  // {
+  //   return this.grabbed;
+  // }
+
+  // public void SetTriggered(bool flag)
+  // {
+  //   this.triggered = flag;
+  // }
+
+  // public void SetGrabbed(bool flag)
+  // {
+  //   this.grabbed = flag;
+  // }
 }

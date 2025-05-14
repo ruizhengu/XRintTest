@@ -10,8 +10,6 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
-using UnityEngine.UI;
-using TMPro;
 
 public class InteractoBot : MonoBehaviour
 {

@@ -2,65 +2,62 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
-
 scenes = [
+    "VR Template",
+    "XRI Assets",
+    "EscapeProto",
+    "GameJam",
     "VR Template",
     "XRI Assets",
     "EscapeProto",
     "GameJam"
 ]
 
-target_scene = scenes[3]
-# Read both sheets
-df_interactobot = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Interactobot')
-df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Interactobot_rand')
-
-# Convert coverage to percentage
-df_interactobot['Coverage'] = df_interactobot['Coverage'].astype(float)*100
-df_random['Coverage'] = df_random['Coverage'].astype(float)*100
-
 # Define the time points you want to label and their new labels
 time_points = [60, 120, 180, 240, 300]
-labels = [r'\textbf{1}', r'\textbf{2}', r'\textbf{3}', r'\textbf{4}', r'\textbf{5}']
+labels = [1, 2, 3, 4, 5]
 
-plt.figure(figsize=(10, 6))
-# Plot both lines with different colors and add labels for legend
+fig, axes = plt.subplots(2, 4, figsize=(24, 10))
+axes = axes.flatten()
 
-plt.rcParams.update({
-    "text.usetex": True,        # Enable LaTeX
-    "font.family": "serif",     # Use serif font (optional, LaTeX default is serif)
-})
-plt.plot(df_interactobot["Time"], df_interactobot["Coverage"],
-         linestyle='-', color='slateblue', linewidth=5, label=r'\textsc{\textbf{InteractoBot}}')
-plt.plot(df_random["Time"], df_random["Coverage"],
-         linestyle='--', color='darkorange', linewidth=5, label=r'\textsc{\textbf{InteractoBot}}$_{rand}$')
+for idx, target_scene in enumerate(scenes[:8]):
+    ax = axes[idx]
+    # Read both sheets
+    df_interactobot = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-InteractoBot')
+    df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Random')
 
-plt.ylim(0, 100)
-plt.gca().yaxis.set_major_formatter(PercentFormatter())
+    # Convert coverage to percentage
+    df_interactobot['Coverage'] = df_interactobot['Coverage'].astype(float)*100
+    df_random['Coverage'] = df_random['Coverage'].astype(float)*100
 
-# Create custom formatter for y-axis to make ticks bold
+    # Plot both lines with different colors and add labels for legend
+    ax.plot(df_interactobot["Time"], df_interactobot["Coverage"],
+            linestyle='-', color='slateblue', linewidth=5, label='InteractoBot')
+    ax.plot(df_random["Time"], df_random["Coverage"],
+            linestyle='--', color='darkorange', linewidth=5, label='Random Baseline')
 
+    ax.set_ylim(0, 100)
+    ax.yaxis.set_major_formatter(PercentFormatter())
 
-def bold_formatter(x, pos):
-    return r'\textbf{' + f'{int(x)}' + '\%' + r'}'
+    ax.set_xticks(time_points)
+    ax.set_xticklabels(labels, fontsize=28, fontweight='bold')
+    ax.tick_params(axis='y', labelsize=28)
+    for label in ax.get_yticklabels():
+        label.set_fontweight('bold')
 
+    ax.grid(axis='y', linestyle='--', alpha=0.6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel(target_scene, fontsize=20, fontweight='bold')
 
-plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(bold_formatter))
+# Hide any unused subplots
+for j in range(len(scenes), 8):
+    fig.delaxes(axes[j])
 
-plt.xticks(time_points, labels, fontsize=28)
-plt.yticks(fontsize=28)
+# Use handles and labels from the first subplot for the legend
+handles, labels = ax.get_legend_handles_labels()
+fig.legend(handles, labels, fontsize=28, loc='lower center', bbox_to_anchor=(0.5, -0.01), ncol=2)
 
-# Add legend with larger font size
-plt.legend(fontsize=28, loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
-
-plt.grid(axis='y', linestyle='--', alpha=0.6)
-ax = plt.gca()
-ax.spines['top'].set_visible(False)
-# ax.spines['bottom'].set_visible(False)
-ax.spines['right'].set_visible(False)
-# ax.spines['left'].set_visible(False)
-
-plt.tight_layout()
-# Save the plot with 300 DPI
-plt.savefig(f'RQ3_{target_scene}.png', dpi=300, bbox_inches='tight')
+plt.tight_layout(rect=[0, 0.08, 1, 1])
+plt.savefig(f'RQ3_efficiency.png', dpi=300, bbox_inches='tight')
 plt.show()

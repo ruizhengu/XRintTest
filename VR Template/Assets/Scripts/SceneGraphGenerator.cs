@@ -12,7 +12,7 @@ public class SceneGraphGenerator : EditorWindow
     public static void GenerateSceneGraph()
     {
         GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-        List<InteractionEvent> results = new List<InteractionEvent>();
+        List<Utils.InteractionEvent> results = new List<Utils.InteractionEvent>();
 
         foreach (GameObject rootObj in rootObjects)
         {
@@ -25,13 +25,13 @@ public class SceneGraphGenerator : EditorWindow
         Debug.Log($"Interaction results exported to {path}");
     }
 
-    private static void ProcessGameObject(GameObject obj, List<InteractionEvent> results)
+    private static void ProcessGameObject(GameObject obj, List<Utils.InteractionEvent> results)
     {
         // Check grab interactions
         var grabInteractable = obj.GetComponent<XRGrabInteractable>();
         if (grabInteractable != null)
         {
-            var result = new InteractionEvent
+            var result = new Utils.InteractionEvent
             {
                 interactor = "XR Origin (XR Rig)",
                 condition = new List<string>(),
@@ -44,7 +44,7 @@ public class SceneGraphGenerator : EditorWindow
             bool triggerInteraction = activatedEvent.GetPersistentEventCount() > 0;
             if (triggerInteraction)
             {
-                var triggerResult = new InteractionEvent
+                var triggerResult = new Utils.InteractionEvent
                 {
                     interactor = "XR Origin (XR Rig)",
                     condition = new List<string> { "grab" },

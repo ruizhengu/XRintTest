@@ -13,7 +13,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class InteractoBot : MonoBehaviour
 {
-    public List<InteractableObject> interactableObjects;
+    public List<Utils.InteractableObject> interactableObjects;
     public int interactionCount = 0;
     public GameObject rightController;
     private float gameSpeed = 2.0f; // May alter gameSpeed to speed up the test execution process
@@ -41,6 +41,9 @@ public class InteractoBot : MonoBehaviour
     private float reportTimer = 0f; // Timer for report interval
     private float totalTime = 0f; // Total time of the test
     private float minuteCount = 0.5f;
+    private float timeBudget = 600f; // 10 minutes time budget in seconds
+    private float startTime; // Time when the program started
+    private bool isTimeBudgetExceeded = false; // Flag to track if time budget is exceeded
     private enum ControllerState // Controller manipulation state
     {
         None,
@@ -61,8 +64,8 @@ public class InteractoBot : MonoBehaviour
     void Start()
     {
         interactableObjects = Utils.GetInteractableObjects();
-        interactionCount = interactableObjects.Count;
-        RegisterListener(); // Register listeners for interactables and UIs
+        interactionCount = Utils.GetInteractableEventsCount(interactableObjects);
+        RegisterListeners();
         Utils.FindSimulatedDevices(); // Find the simulated devices
     }
 
@@ -74,9 +77,18 @@ public class InteractoBot : MonoBehaviour
         if (reportTimer >= reportInterval)
         {
             int currentInteracted = Utils.CountInteracted(interactableObjects);
-            Debug.Log("Current Interacted " + minuteCount + "m: " + currentInteracted + " / " + interactionCount + " (" + (float)currentInteracted / (float)interactionCount * 100 + "%)");
+            Debug.Log($"Current Interacted {minuteCount}m: {currentInteracted} / {interactionCount} ({currentInteracted / interactionCount * 100}%)");
             minuteCount += 0.5f;
             reportTimer = 0f;
+        }
+        if (!isTimeBudgetExceeded && Time.time - startTime >= timeBudget)
+        {
+            isTimeBudgetExceeded = true;
+            Debug.Log($"Time budget exceeded. Stopping script execution.");
+            int currentInteracted = Utils.CountInteracted(interactableObjects, true);
+            Debug.Log($"Interaction Results: {currentInteracted} / {interactionCount} ({currentInteracted / interactionCount * 100}%)");
+            this.enabled = false;
+            return;
         }
         // Handle different exploration states
         switch (currentExplorationState)
@@ -101,7 +113,7 @@ public class InteractoBot : MonoBehaviour
     /// </summary>
     private void Navigation()
     {
-        InteractableObject closestInteractable = GetCloestInteractable();
+        Utils.InteractableObject closestInteractable = GetCloestInteractable();
         if (closestInteractable == null)
         {
             if (interactableObjects.All(obj => obj.Visited) &&
@@ -109,8 +121,10 @@ public class InteractoBot : MonoBehaviour
             {
                 return; // Don't end the test yet, let the interaction complete
             }
-            Debug.Log("Test End");
-            Debug.Log("Number of Interacted Interactables: " + Utils.CountInteracted(interactableObjects) + " / " + interactionCount);
+            Debug.Log($"Test End: execution time {totalTime}s");
+            int currentInteracted = Utils.CountInteracted(interactableObjects, true);
+            Debug.Log($"Number of Interacted Interactables: {currentInteracted} / {interactionCount} ({currentInteracted / interactionCount * 100}%)");
+            this.enabled = false;
             return;
         }
         ResetControllerPosition();
@@ -160,7 +174,7 @@ public class InteractoBot : MonoBehaviour
             return;
         }
 
-        InteractableObject closestInteractable = GetCloestInteractable();
+        Utils.InteractableObject closestInteractable = GetCloestInteractable();
         if (closestInteractable == null)
         {
             StartCoroutine(TransitionToState(ExplorationState.Navigation));
@@ -197,12 +211,9 @@ public class InteractoBot : MonoBehaviour
                     closestInteractable.Visited = true;
                     var events = closestInteractable.Events;
                     current3DInteractionPattern = string.Join(",", events);
-                    // if (closestInteractable.GetObjectType() == "3d")
-                    // {
                     bool intersection = Utils.GetIntersected(closestInteractable.Interactable, rightController);
                     closestInteractable.Intersected = intersection;
                     StartCoroutine(TransitionToState(ExplorationState.ThreeDInteraction));
-                    // }
                 }
             }
         }
@@ -321,7 +332,6 @@ public class InteractoBot : MonoBehaviour
 
     IEnumerator ExecuteKeyWithDuration(Key key, float duration)
     {
-        // Debug.Log($"Executing key: {key} for {duration} seconds");
         var keyboard = InputSystem.GetDevice<Keyboard>();
         if (keyboard == null) yield break;
         // Press the key
@@ -408,11 +418,11 @@ public class InteractoBot : MonoBehaviour
     /// Greedy policy: move to and interact with the closest interactable based on the current position
     /// </summary>
     /// <returns></returns>
-    public InteractableObject GetCloestInteractable()
+    public Utils.InteractableObject GetCloestInteractable()
     {
-        InteractableObject closest = null;
+        Utils.InteractableObject closest = null;
         float minDistance = Mathf.Infinity;
-        foreach (InteractableObject interactable in interactableObjects)
+        foreach (Utils.InteractableObject interactable in interactableObjects)
         {
             if (!interactable.Visited)
             {
@@ -427,9 +437,8 @@ public class InteractoBot : MonoBehaviour
         return closest;
     }
 
-    void RegisterListener()
+    void RegisterListeners()
     {
-        // Register listeners for common interactable types
         foreach (var obj in interactableObjects)
         {
             var baseInteractable = obj.Interactable.GetComponent<XRBaseInteractable>();

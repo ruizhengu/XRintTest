@@ -99,46 +99,54 @@ public static class Utils
     }
   }
 
-  public static void ExecuteKey(Key key)
-  {
-    Debug.Log("Executing key: " + key);
-    var keyboard = InputSystem.GetDevice<Keyboard>();
-    if (keyboard == null) return;
-    InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
-    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-  }
-
-  public static void ExecuteKeyImmediate(Key key)
-  {
-    var keyboard = InputSystem.GetDevice<Keyboard>();
-    if (keyboard == null) return;
-
-    // Press and release immediately
-    InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
-    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-  }
-
   public static List<InteractableObject> GetInteractableObjects()
   {
     var interactionEvents = ParseInteractionGraph();
-    var interactableObjects = new List<InteractableObject>();
+    var interactableDict = new Dictionary<string, InteractableObject>();
 
     foreach (var interactionEvent in interactionEvents)
     {
       var interactable = GameObject.Find(interactionEvent.interactable);
       if (interactable == null) continue;
 
-      if (interactionEvent.interaction_type == "trigger")
+      if (!interactableDict.TryGetValue(interactionEvent.interactable, out var obj))
       {
-        interactableObjects.Add(new InteractableObject(interactionEvent.interactable, interactable, true, new List<string> { "trigger", "grab" }));
+        // Create new InteractableObject with the first interaction type
+        var events = new List<string> { interactionEvent.interaction_type };
+        bool isTrigger = interactionEvent.interaction_type == "trigger";
+        obj = new InteractableObject(interactionEvent.interactable, interactable, isTrigger, events);
+        interactableDict[interactionEvent.interactable] = obj;
       }
-      else if (interactionEvent.interaction_type == "grab")
+      else
       {
-        interactableObjects.Add(new InteractableObject(interactionEvent.interactable, interactable, false, new List<string> { "grab" }));
+        // Add new interaction type if not already present
+        if (!obj.Events.Contains(interactionEvent.interaction_type))
+        {
+          obj.Events.Add(interactionEvent.interaction_type);
+        }
+        // If any interaction type is trigger, set IsTrigger to true
+        if (interactionEvent.interaction_type == "trigger")
+        {
+          obj.IsTrigger = true;
+        }
       }
     }
-    LogInteractables(interactableObjects);
+    var interactableObjects = interactableDict.Values.ToList();
+    // LogInteractables(interactableObjects);
     return interactableObjects;
+  }
+
+  public static int GetInteractableEventsCount(List<InteractableObject> interactableObjects)
+  {
+    int eventCount = 0;
+    foreach (var obj in interactableObjects)
+    {
+      if (obj.Events != null)
+      {
+        eventCount += obj.Events.Count;
+      }
+    }
+    return eventCount;
   }
 
   private static void LogInteractables(List<InteractableObject> interactables)
@@ -149,7 +157,7 @@ public static class Utils
     }
   }
 
-  public static int CountInteracted(List<InteractableObject> interactableObjects)
+  public static int CountInteracted(List<InteractableObject> interactableObjects, bool detailedLog = false)
   {
     int count = 0;
     foreach (var obj in interactableObjects)
@@ -157,14 +165,21 @@ public static class Utils
       if (obj.Interacted)
       {
         count++;
+        if (obj.IsTrigger)
+        {
+          count++;
+        }
       }
-      else if (!obj.Interacted && obj.Intersected)
+      else if (detailedLog)
       {
-        Debug.Log("Could be a bug: " + obj.Name);
-      }
-      else
-      {
-        Debug.Log("Not Interacted Interactable: " + obj.Name);
+        if (!obj.Interacted && obj.Intersected)
+        {
+          Debug.Log("Could be a bug: " + obj.Name);
+        }
+        else
+        {
+          Debug.Log("Not Interacted Interactable: " + obj.Name);
+        }
       }
     }
     return count;
@@ -184,5 +199,55 @@ public static class Utils
       return combinedBounds.Intersects(controllerCollider.bounds);
     }
     return false;
+  }
+
+  public class InteractionEvent
+  {
+    public string interactor;
+    public List<string> condition;
+    public string interactable;
+    public string interaction_type;
+
+    public InteractionEvent() { }
+
+    public InteractionEvent(string interactor, List<string> condition, string interactable, string interaction_type)
+    {
+      this.interactor = interactor;
+      this.condition = condition;
+      this.interactable = interactable;
+      this.interaction_type = interaction_type;
+    }
+  }
+
+  public class InteractableObject
+  {
+    public GameObject Interactable { get; set; }
+
+    public string Name { get; set; }
+
+    public bool Interacted { get; set; }
+
+    public List<string> Events { get; set; }
+
+    public bool Intersected { get; set; }
+
+    public bool Visited { get; set; }
+
+    public bool IsTrigger { get; set; }
+
+    public bool Triggered { get; set; }
+
+    public bool Grabbed { get; set; }
+
+    public InteractableObject(string name, GameObject go, bool isTrigger, List<string> events)
+    {
+      this.Name = name;
+      this.Interactable = go;
+      this.IsTrigger = isTrigger;
+      this.Visited = false;
+      this.Interacted = false;
+      this.Intersected = false;
+      this.Events = events;
+    }
   }
 }

@@ -2,20 +2,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
+# scenes = [
+#     "VR Template",
+#     "XRI Assets",
+#     "EscapeProto",
+#     "GameJam",
+#     "VR Template",
+#     "XRI Assets",
+#     "EscapeProto",
+#     "GameJam"
+# ]
+
 scenes = [
     "VR Template",
-    "XRI Assets",
-    "EscapeProto",
-    "GameJam",
     "VR Template",
-    "XRI Assets",
-    "EscapeProto",
-    "GameJam"
+    "VR Template",
+    "VR Template",
+    "VR Template",
+    "VR Template",
+    "VR Template",
+    "VR Template",
 ]
 
 # Define the time points you want to label and their new labels
-time_points = [60, 120, 180, 240, 300]
-labels = [1, 2, 3, 4, 5]
+time_points = [60, 120, 180, 240, 300, 360, 420, 480, 540, 600]
+labels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 fig, axes = plt.subplots(2, 4, figsize=(24, 10))
 axes = axes.flatten()
@@ -40,10 +51,11 @@ for idx, target_scene in enumerate(scenes[:8]):
     ax.yaxis.set_major_formatter(PercentFormatter())
 
     ax.set_xticks(time_points)
-    ax.set_xticklabels(labels, fontsize=28, fontweight='bold')
-    ax.tick_params(axis='y', labelsize=28)
-    for label in ax.get_yticklabels():
-        label.set_fontweight('bold')
+    # ax.set_xticklabels(labels, fontsize=28, fontweight='bold')
+    ax.set_xticklabels(labels, fontsize=20)
+    ax.tick_params(axis='y', labelsize=20)
+    # for label in ax.get_yticklabels():
+    #     label.set_fontweight('bold')
 
     ax.grid(axis='y', linestyle='--', alpha=0.6)
     ax.spines['top'].set_visible(False)

@@ -80,7 +80,8 @@ public class RandomBaseline : MonoBehaviour
         if (reportTimer >= reportInterval)
         {
             int currentInteracted = Utils.CountInteracted(interactableObjects);
-            Debug.Log($"Current Interacted {minuteCount}m: {currentInteracted} / {interactionCount} ({currentInteracted / interactionCount * 100}%)");
+            float currentInteractedPercentage = (float)currentInteracted / (float)interactionCount * 100;
+            Debug.Log($"Current Interacted {minuteCount}m: {currentInteracted} / {interactionCount} ({currentInteractedPercentage}%)");
             minuteCount += 0.5f;
             reportTimer = 0f;
         }
@@ -89,7 +90,8 @@ public class RandomBaseline : MonoBehaviour
             isTimeBudgetExceeded = true;
             Debug.Log($"Time budget exceeded. Stopping script execution.");
             int currentInteracted = Utils.CountInteracted(interactableObjects, true);
-            Debug.Log($"Interaction Results: {currentInteracted} / {interactionCount} ({currentInteracted / interactionCount * 100}%)");
+            float currentInteractedPercentage = (float)currentInteracted / (float)interactionCount * 100;
+            Debug.Log($"Interaction Results: {currentInteracted} / {interactionCount} ({currentInteractedPercentage}%)");
             this.enabled = false;
             return;
         }

@@ -16,7 +16,7 @@ public class RandomBaseline : MonoBehaviour
     public int interactionCount = 0;
     public List<Utils.InteractableObject> interactableObjects;
     private float gameSpeed = 2.0f; // May alter gameSpeed to speed up the test execution process
-    private float actionInterval = 0.5f; // Time between random actions
+    private float actionInterval = 0.01f; // Time between random actions
     private float lastActionTime = 0f;
     private bool isExecutingAction = false;
     private bool isCameraMode = true; // Track whether we're in camera or controller mode
@@ -36,13 +36,14 @@ public class RandomBaseline : MonoBehaviour
         MoveBackward,
         MoveLeft,
         MoveRight,
+        RotateLeft,
         MoveUp,
         MoveDown,
-        RotateLeft,
         RotateRight,
         GripAction,
         TriggerAction,
-        SwitchMode
+        SwitchMode,
+        ResetController
     }
 
     void Start()
@@ -191,12 +192,6 @@ public class RandomBaseline : MonoBehaviour
             case ActionType.MoveRight:
                 transform.Translate(Vector3.right * cameraMoveSpeed);
                 break;
-            case ActionType.MoveUp:
-                transform.Translate(Vector3.up * cameraMoveSpeed);
-                break;
-            case ActionType.MoveDown:
-                transform.Translate(Vector3.down * cameraMoveSpeed);
-                break;
             case ActionType.RotateLeft:
                 transform.Rotate(Vector3.up, -cameraRotateSpeed);
                 break;
@@ -204,9 +199,8 @@ public class RandomBaseline : MonoBehaviour
                 transform.Rotate(Vector3.up, cameraRotateSpeed);
                 break;
             case ActionType.SwitchMode:
-                Key switchControllerKey = Key.RightBracket;
-                yield return ExecuteKeyWithDuration(switchControllerKey, 0.1f);
                 isCameraMode = false;
+                yield return ExecuteKeyWithDuration(Key.RightBracket, 0.1f);
                 break;
         }
         yield return new WaitForSeconds(0.1f);
@@ -244,8 +238,10 @@ public class RandomBaseline : MonoBehaviour
                 break;
             case ActionType.SwitchMode:
                 isCameraMode = true;
-                Key switchCameraKey = Key.Tab;
-                yield return ExecuteKeyWithDuration(switchCameraKey, 0.1f);
+                yield return ExecuteKeyWithDuration(Key.Tab, 0.1f);
+                break;
+            case ActionType.ResetController:
+                yield return ExecuteKeyWithDuration(Key.R, 0.1f);
                 break;
         }
     }

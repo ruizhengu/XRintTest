@@ -28,6 +28,8 @@ public class RandomBaseline : MonoBehaviour
     private float reportInterval = 30f; // Report interval in seconds
     private float reportTimer = 0f; // Timer for report interval
     private float minuteCount = 0.5f;
+    private Vector3 spawnPosition;
+    private List<ActionType> weightedActions;
 
     // Action types that can be randomly selected
     private enum ActionType
@@ -43,16 +45,29 @@ public class RandomBaseline : MonoBehaviour
         GripAction,
         TriggerAction,
         SwitchMode,
-        ResetController
+        ResetPosition
     }
 
     void Start()
     {
         // Place the object at a random x and z position (y unchanged)
-        Vector3 pos = transform.position;
         float randomX = UnityEngine.Random.Range(-2.5f, 2.5f);
         float randomZ = UnityEngine.Random.Range(-2.5f, 2.5f);
-        transform.position = new Vector3(randomX, pos.y, randomZ);
+        spawnPosition = new Vector3(randomX, transform.position.y, randomZ);
+        transform.position = spawnPosition;
+
+        // Weighted actions: ResetPosition appears only once, others more often
+        weightedActions = new List<ActionType> {
+            ActionType.MoveForward, ActionType.MoveBackward, ActionType.MoveLeft, ActionType.MoveRight,
+            ActionType.RotateLeft, ActionType.MoveUp, ActionType.MoveDown, ActionType.RotateRight,
+            ActionType.GripAction, ActionType.TriggerAction, ActionType.SwitchMode,
+            // Add each action multiple times for higher weight
+            ActionType.MoveForward, ActionType.MoveBackward, ActionType.MoveLeft, ActionType.MoveRight,
+            ActionType.RotateLeft, ActionType.MoveUp, ActionType.MoveDown, ActionType.RotateRight,
+            ActionType.GripAction, ActionType.TriggerAction, ActionType.SwitchMode,
+            // ResetPosition only once for lower weight
+            ActionType.ResetPosition
+        };
 
         Time.timeScale = gameSpeed;
         startTime = Time.time;
@@ -158,8 +173,8 @@ public class RandomBaseline : MonoBehaviour
         isExecutingAction = true;
         lastActionTime = Time.time;
 
-        // Get a random action type
-        ActionType randomAction = (ActionType)UnityEngine.Random.Range(0, System.Enum.GetValues(typeof(ActionType)).Length);
+        // Get a random action type from the weighted list
+        ActionType randomAction = weightedActions[UnityEngine.Random.Range(0, weightedActions.Count)];
 
         // Execute the selected action
         if (isCameraMode)
@@ -202,6 +217,9 @@ public class RandomBaseline : MonoBehaviour
                 isCameraMode = false;
                 yield return ExecuteKeyWithDuration(Key.RightBracket, 0.1f);
                 break;
+            case ActionType.ResetPosition:
+                transform.position = spawnPosition;
+                break;
         }
         yield return new WaitForSeconds(0.1f);
     }
@@ -240,7 +258,7 @@ public class RandomBaseline : MonoBehaviour
                 isCameraMode = true;
                 yield return ExecuteKeyWithDuration(Key.Tab, 0.1f);
                 break;
-            case ActionType.ResetController:
+            case ActionType.ResetPosition:
                 yield return ExecuteKeyWithDuration(Key.R, 0.1f);
                 break;
         }

@@ -74,7 +74,7 @@ public class RandomBaseline : MonoBehaviour
         }
     }
 
-    void Update()
+    void FixedUpdate()
     {
         reportTimer += Time.deltaTime;
         if (reportTimer >= reportInterval)

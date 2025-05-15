@@ -69,7 +69,7 @@ public class InteractoBot : MonoBehaviour
         Utils.FindSimulatedDevices(); // Find the simulated devices
     }
 
-    void Update()
+    void FixedUpdate()
     {
         Time.timeScale = gameSpeed;
         reportTimer += Time.deltaTime;

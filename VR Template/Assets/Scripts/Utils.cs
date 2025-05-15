@@ -170,13 +170,17 @@ public static class Utils
           count++;
         }
       }
-      else if (detailedLog)
+      else if (!obj.Interacted && obj.Grabbed)
+      {
+        count++;
+      }
+      if (detailedLog)
       {
         if (!obj.Interacted && obj.Intersected)
         {
           Debug.Log("Could be a bug: " + obj.Name);
         }
-        else
+        if (!obj.Interacted)
         {
           Debug.Log("Not Interacted Interactable: " + obj.Name);
         }
@@ -222,22 +226,16 @@ public static class Utils
   public class InteractableObject
   {
     public GameObject Interactable { get; set; }
-
     public string Name { get; set; }
-
+    public List<string> Events { get; set; }
+    public bool Intersected { get; set; }
+    public bool IsTrigger { get; set; }
+    public bool Triggered { get; set; }
+    public bool Grabbed { get; set; }
+    public bool Visited { get; set; }
+    public bool InteractionAttempted { get; set; }
     public bool Interacted { get; set; }
 
-    public List<string> Events { get; set; }
-
-    public bool Intersected { get; set; }
-
-    public bool Visited { get; set; }
-
-    public bool IsTrigger { get; set; }
-
-    public bool Triggered { get; set; }
-
-    public bool Grabbed { get; set; }
 
     public InteractableObject(string name, GameObject go, bool isTrigger, List<string> events)
     {
@@ -246,6 +244,7 @@ public static class Utils
       this.IsTrigger = isTrigger;
       this.Visited = false;
       this.Interacted = false;
+      this.InteractionAttempted = false;
       this.Intersected = false;
       this.Events = events;
     }

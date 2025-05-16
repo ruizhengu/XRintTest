@@ -2,33 +2,32 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
-# scenes = [
-#     "VR Template",
-#     "XRI Assets",
-#     "EscapeProto",
-#     "GameJam",
-#     "VR Template",
-#     "XRI Assets",
-#     "EscapeProto",
-#     "GameJam"
-# ]
-
 scenes = [
     "VR Template",
-    "VR Template",
-    "VR Template",
-    "VR Template",
-    "VR Template",
-    "VR Template",
-    "VR Template",
-    "VR Template",
+    "XRI Assets",
+    "XRI Kit",
+    "XRI Examples",
+    "GameJam",
+    "EscapeProto",
+    "EscapeRoom",
+    "Average"
 ]
 
 # Define the time points you want to label and their new labels
 time_points = [60, 120, 180, 240, 300, 360, 420, 480, 540, 600]
 labels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+x_labels = [
+    "Scene 1",
+    "Scene 2",
+    "Scene 3",
+    "Scene 4",
+    "Scene 5",
+    "Scene 6",
+    "Scene 7",
+    "Average"
+]
 
-fig, axes = plt.subplots(2, 4, figsize=(24, 10))
+fig, axes = plt.subplots(2, 4, figsize=(26, 10))
 axes = axes.flatten()
 
 for idx, target_scene in enumerate(scenes[:8]):
@@ -60,7 +59,8 @@ for idx, target_scene in enumerate(scenes[:8]):
     ax.grid(axis='y', linestyle='--', alpha=0.6)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.set_xlabel(target_scene, fontsize=20, fontweight='bold')
+
+    ax.set_xlabel(x_labels[idx], fontsize=20, fontweight='bold')
 
 # Hide any unused subplots
 for j in range(len(scenes), 8):
@@ -68,7 +68,7 @@ for j in range(len(scenes), 8):
 
 # Use handles and labels from the first subplot for the legend
 handles, labels = ax.get_legend_handles_labels()
-fig.legend(handles, labels, fontsize=28, loc='lower center', bbox_to_anchor=(0.5, -0.01), ncol=2)
+fig.legend(handles, labels, fontsize=22, loc='lower center', ncol=2)
 
 plt.tight_layout(rect=[0, 0.08, 1, 1])
 plt.savefig(f'RQ3_efficiency.png', dpi=300, bbox_inches='tight')

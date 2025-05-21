@@ -34,17 +34,29 @@ for idx, target_scene in enumerate(scenes[:8]):
     ax = axes[idx]
     # Read both sheets
     df_interactobot = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-InteractoBot')
-    df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Random')
 
-    # Convert coverage to percentage
+    df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Random')
     df_interactobot['Coverage'] = df_interactobot['Coverage'].astype(float)*100
     df_random['Coverage'] = df_random['Coverage'].astype(float)*100
 
-    # Plot both lines with different colors and add labels for legend
-    ax.plot(df_interactobot["Time"], df_interactobot["Coverage"],
-            linestyle='-', color='slateblue', linewidth=5, label='InteractoBot')
-    ax.plot(df_random["Time"], df_random["Coverage"],
-            linestyle='--', color='darkorange', linewidth=5, label='Random Baseline')
+    run_cols_interactobot = [col for col in df_interactobot.columns if col.startswith('Run')]
+    run_cols_random = [col for col in df_random.columns if col.startswith('Run')]
+    df_interactobot[run_cols_interactobot] = df_interactobot[run_cols_interactobot].astype(float) * 100
+    df_random[run_cols_random] = df_random[run_cols_random].astype(float) * 100
+
+    # Calculate min/max for confidence band
+    min_interactobot = df_interactobot[run_cols_interactobot].min(axis=1)
+    max_interactobot = df_interactobot[run_cols_interactobot].max(axis=1)
+    min_random = df_random[run_cols_random].min(axis=1)
+    max_random = df_random[run_cols_random].max(axis=1)
+
+    # Plot mean lines (using Coverage column)
+    ax.plot(df_interactobot["Time"], df_interactobot["Coverage"], linestyle='-', color='slateblue', linewidth=5, label='InteractoBot')
+    ax.plot(df_random["Time"], df_random["Coverage"], linestyle='--', color='darkorange', linewidth=5, label='Random Baseline')
+
+    # Plot confidence bands
+    ax.fill_between(df_interactobot["Time"], min_interactobot, max_interactobot, color='slateblue', alpha=0.2)
+    ax.fill_between(df_random["Time"], min_random, max_random, color='darkorange', alpha=0.2)
 
     ax.set_ylim(0, 100)
     ax.yaxis.set_major_formatter(PercentFormatter())

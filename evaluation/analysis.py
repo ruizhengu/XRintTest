@@ -51,8 +51,10 @@ for idx, target_scene in enumerate(scenes[:8]):
     max_random = df_random[run_cols_random].max(axis=1)
 
     # Plot mean lines (using Coverage column)
-    ax.plot(df_interactobot["Time"], df_interactobot["Coverage"], linestyle='-', color='slateblue', linewidth=5, label='InteractoBot')
-    ax.plot(df_random["Time"], df_random["Coverage"], linestyle='--', color='darkorange', linewidth=5, label='Random Baseline')
+    ax.plot(df_interactobot["Time"], df_interactobot["Coverage"],
+            linestyle='-', color='slateblue', linewidth=5, label='XRintTest')
+    ax.plot(df_random["Time"], df_random["Coverage"], linestyle='--',
+            color='darkorange', linewidth=5, label='Random Baseline')
 
     # Plot confidence bands
     ax.fill_between(df_interactobot["Time"], min_interactobot, max_interactobot, color='slateblue', alpha=0.2)

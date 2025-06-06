@@ -38,7 +38,19 @@
   {
     "interactor": "XR Origin (XR Rig)",
     "condition": [],
+    "interactable": "Collider",
+    "interaction_type": "grab"
+  },
+  {
+    "interactor": "XR Origin (XR Rig)",
+    "condition": [],
     "interactable": "Arch_Interactable",
+    "interaction_type": "grab"
+  },
+  {
+    "interactor": "XR Origin (XR Rig)",
+    "condition": [],
+    "interactable": "Totem2 Variant",
     "interaction_type": "grab"
   },
   {

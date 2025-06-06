@@ -64,17 +64,16 @@ for idx, target_scene in enumerate(scenes[:8]):
     ax.yaxis.set_major_formatter(PercentFormatter())
 
     ax.set_xticks(time_points)
-    # ax.set_xticklabels(labels, fontsize=28, fontweight='bold')
-    ax.set_xticklabels(labels, fontsize=20)
-    ax.tick_params(axis='y', labelsize=20)
-    # for label in ax.get_yticklabels():
-    #     label.set_fontweight('bold')
+    ax.set_xticklabels(labels, fontsize=18)
+    ax.tick_params(axis='y', labelsize=18)
 
     ax.grid(axis='y', linestyle='--', alpha=0.6)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    ax.set_xlabel(x_labels[idx], fontsize=20, fontweight='bold')
+    ax.set_title(x_labels[idx], fontsize=20, fontweight='bold')
+    ax.set_xlabel('Time (minutes)', fontsize=20)
+    ax.set_ylabel('XUI Coverage (%)', fontsize=20)
 
 # Hide any unused subplots
 for j in range(len(scenes), 8):

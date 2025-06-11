@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Check if root directory is provided
+if [ $# -eq 0 ]; then
+    echo "Error: Root directory path is required"
+    echo "Usage: $0 <root_directory_path>"
+    exit 1
+fi
+
+ROOT_DIR="$1"
+SCRIPT_DIR="$(dirname "$0")/scripts"
+TARGET_SCRIPTS_DIR="${ROOT_DIR}/Assets/Scripts"
+
 # Check if jq is installed
 if ! command -v jq &> /dev/null; then
     echo "Error: jq is not installed. Please install it first."
@@ -7,7 +18,32 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-MANIFEST_FILE="Packages/manifest.json"
+MANIFEST_FILE="${ROOT_DIR}/Packages/manifest.json"
+
+# Check if root directory exists
+if [ ! -d "$ROOT_DIR" ]; then
+    echo "Error: Root directory '$ROOT_DIR' does not exist"
+    exit 1
+fi
+
+# Check and create Scripts directory if it doesn't exist
+if [ ! -d "$TARGET_SCRIPTS_DIR" ]; then
+    echo "Creating Scripts directory at $TARGET_SCRIPTS_DIR"
+    mkdir -p "$TARGET_SCRIPTS_DIR"
+fi
+
+# Check if source scripts directory exists
+if [ ! -d "$SCRIPT_DIR" ]; then
+    echo "Error: Source scripts directory '$SCRIPT_DIR' does not exist"
+    exit 1
+fi
+
+# Copy script files to target directory
+echo "Copying script files to $TARGET_SCRIPTS_DIR"
+cp -n "$SCRIPT_DIR"/*.cs "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
+cp -n "$SCRIPT_DIR"/*.json "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
+
+echo "Script files have been copied to $TARGET_SCRIPTS_DIR"
 
 # Check and add packages if needed
 PACKAGES=(

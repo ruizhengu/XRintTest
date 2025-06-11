@@ -3,11 +3,14 @@ using UnityEditor;
 using System.IO;
 using System.Collections.Generic;
 
-public class SceneChecker : EditorWindow
+public class SceneConfigurator : EditorWindow
 {
-    [MenuItem("Tools/Check Scene Requirements")]
-    public static void CheckSceneRequirements()
+    [MenuItem("Tools/Configure Scene")]
+    public static void ConfigureScene()
     {
+        // Check and configure XR Origin components
+        CheckAndAddComponents();
+
         // Check if XR Device Simulator folder exists
         string simulatorPath = Path.Combine(Application.dataPath, "Samples/XR Interaction Toolkit/3.1.1/XR Device Simulator/XRInteractionSimulator");
         if (Directory.Exists(simulatorPath))
@@ -104,6 +107,50 @@ public class SceneChecker : EditorWindow
         else
         {
             Debug.LogWarning("XR Device Simulator folder not found at: " + simulatorPath + ". Please install the XR Device Simulator.");
+        }
+    }
+
+    private static void CheckAndAddComponents()
+    {
+        // Find the XR Origin (XR Rig) object
+        GameObject xrOrigin = GameObject.Find("XR Origin (XR Rig)");
+        if (xrOrigin == null)
+        {
+            Debug.LogError("XR Origin (XR Rig) not found in the scene!");
+            return;
+        }
+
+        bool componentsAdded = false;
+
+        // Check and add XRIntTest component
+        XRIntTest xrIntTest = xrOrigin.GetComponent<XRIntTest>();
+        if (xrIntTest == null)
+        {
+            xrOrigin.AddComponent<XRIntTest>();
+            Debug.Log("Added XRIntTest component to XR Origin (XR Rig)");
+            componentsAdded = true;
+        }
+        else
+        {
+            Debug.Log("XRIntTest component already exists on XR Origin (XR Rig)");
+        }
+
+        // Check and add RandomBaseline component
+        RandomBaseline randomBaseline = xrOrigin.GetComponent<RandomBaseline>();
+        if (randomBaseline == null)
+        {
+            xrOrigin.AddComponent<RandomBaseline>();
+            Debug.Log("Added RandomBaseline component to XR Origin (XR Rig)");
+            componentsAdded = true;
+        }
+        else
+        {
+            Debug.Log("RandomBaseline component already exists on XR Origin (XR Rig)");
+        }
+
+        if (!componentsAdded)
+        {
+            Debug.Log("All required components are already present on XR Origin (XR Rig)");
         }
     }
 }

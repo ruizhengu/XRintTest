@@ -8,7 +8,7 @@ if [ $# -eq 0 ]; then
 fi
 
 ROOT_DIR="$1"
-SCRIPT_DIR="$(dirname "$0")/scripts"
+SCRIPT_DIR="$(dirname "$0")/requirements"
 TARGET_SCRIPTS_DIR="${ROOT_DIR}/Assets/Scripts"
 
 # Check if jq is installed
@@ -44,6 +44,22 @@ cp -n "$SCRIPT_DIR"/*.cs "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
 cp -n "$SCRIPT_DIR"/*.json "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
 
 echo "Script files have been copied to $TARGET_SCRIPTS_DIR"
+
+# Additional logic for XR Device Simulator folder
+TARGET_XR_SIMULATOR_DIR="${ROOT_DIR}/Assets/Samples/XR Interaction Toolkit/3.1.1/XR Device Simulator"
+SOURCE_XR_SIMULATOR_DIR="${SCRIPT_DIR}/XR Device Simulator"
+
+if [ -d "${ROOT_DIR}/Assets/Samples/XR Interaction Toolkit/3.1.1" ]; then
+    if [ ! -d "$TARGET_XR_SIMULATOR_DIR" ]; then
+        echo "Copying XR Device Simulator folder to $TARGET_XR_SIMULATOR_DIR"
+        cp -R "$SOURCE_XR_SIMULATOR_DIR" "$TARGET_XR_SIMULATOR_DIR"
+        echo "XR Device Simulator folder has been copied."
+    else
+        echo "XR Device Simulator folder already exists at $TARGET_XR_SIMULATOR_DIR. Skipping copy."
+    fi
+else
+    echo "Target directory /Assets/Samples/XR Interaction Toolkit/3.1.1 does not exist. Skipping XR Device Simulator copy."
+fi
 
 # Check and add packages if needed
 PACKAGES=(

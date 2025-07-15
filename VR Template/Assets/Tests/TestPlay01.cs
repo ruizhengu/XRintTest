@@ -85,5 +85,6 @@ public class TestPlay01
     public IEnumerator MoveControllerToObject(Transform controller, Transform target, float moveSpeed = 1.0f, float threshold = 0.05f)
     {
         // TODO: Implement this
+        yield return null;
     }
 }

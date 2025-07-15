@@ -9,10 +9,12 @@ using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class TestPlay01
 {
     private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
+    private bool cubeWasGrabbed = false;
 
     // A Test behaves as an ordinary method
     // [Test]
@@ -28,11 +30,22 @@ public class TestPlay01
     {
         // Load the scene containing the cube
         yield return SceneManager.LoadSceneAsync("SampleScene", LoadSceneMode.Single);
+
         // Wait for scene to fully load
         yield return new WaitForSeconds(0.1f);
 
         var cubeObj = GameObject.Find("Cube Interactable");
         Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
+
+        var xrBaseInteractable = cubeObj.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
+        Assert.IsNotNull(xrBaseInteractable, "XRBaseInteractable not found on Cube Interactable.");
+
+        // Register the listener
+        xrBaseInteractable.selectEntered.AddListener((args) =>
+        {
+            Debug.Log("Cube OnSelectEntered triggered!");
+            cubeWasGrabbed = true;
+        });
 
         var player = GameObject.Find("XR Origin (XR Rig)");
         Assert.IsNotNull(player, "Player or Camera not found in the scene.");
@@ -45,6 +58,11 @@ public class TestPlay01
 
         // 2. Move controller to Cube Interactable
         yield return MoveControllerToObject(rightController.transform, cubeObj.transform);
+
+        // 3. Grab the cube
+        yield return ControllerGrabAction();
+
+        Assert.IsTrue(cubeWasGrabbed, "Cube's OnSelectEntered was not triggered.");
 
         yield return null;
     }
@@ -89,8 +107,7 @@ public class TestPlay01
 
     public IEnumerator MoveControllerToObject(Transform controller, Transform target, float moveSpeed = 1.0f, float threshold = 0.05f)
     {
-        Debug.Log("MoveControllerToObject");
-        yield return ExecuteKeyWithDuration(Key.RightBracket, 0.1f);
+        yield return ExecuteKeyWithDuration(Key.RightBracket, 0.01f);
         while (true)
         {
             Vector3 controllerCurrentPos = controller.position;
@@ -141,6 +158,13 @@ public class TestPlay01
             yield return ExecuteKeyWithDuration(yKey, 0.01f);
             yield break;
         }
+        yield break;
+    }
+
+    IEnumerator ControllerGrabAction()
+    {
+        Key grabKey = Key.G;
+        yield return ExecuteKeyWithDuration(grabKey, 0.01f);
         yield break;
     }
 

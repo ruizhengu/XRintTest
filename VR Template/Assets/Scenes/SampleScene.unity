@@ -1808,6 +1808,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Rotating Torus
       objectReference: {fileID: 0}
+    - target: {fileID: 1064811109664483937, guid: 29529d949c965f643befe6cfcd1e372c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1934122047220170890, guid: 29529d949c965f643befe6cfcd1e372c, type: 3}
       propertyPath: m_Name
       value: Audio Affordance 7
@@ -2269,6 +2273,10 @@ PrefabInstance:
     - target: {fileID: 7460871686683245318, guid: c72778ad3d61c1c4286eb3a2aeb02741, type: 3}
       propertyPath: m_Name
       value: Audio Affordance 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 7736990912730650688, guid: c72778ad3d61c1c4286eb3a2aeb02741, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -21,7 +21,7 @@ public class XRIntTest : MonoBehaviour
     // Movement parameters
     private float moveSpeed = 1.0f;
     private float rotateSpeed = 1.0f;
-    private float updateInterval = 0.01f;
+    private float updateInterval = 0.001f;
     private float timeSinceLastUpdate = 0f;
     private float interactionAngle = 5.0f; // The angle for transiting from rotation to interaction
     private float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
@@ -94,9 +94,9 @@ public class XRIntTest : MonoBehaviour
             if (!isGrabHeld && grabActionCount == 0 && combinedActionCount == 0)
             {
                 Debug.Log($"Test End: execution time {totalTime}s");
-                int currentInteracted = Utils.CountInteracted(interactableObjects, true);
-                float currentInteractedPercentage = (float)currentInteracted / (float)interactionCount * 100;
-                Debug.Log($"Number of Interacted Interactables: {currentInteracted} / {interactionCount} ({currentInteractedPercentage}%)");
+                int currentActivated = Utils.CountInteracted(interactableObjects, true);
+                float currentActivatedPercentage = (float)currentActivated / (float)interactionCount * 100;
+                Debug.Log($"Number of Activated Interactions: {currentActivated} / {interactionCount} ({currentActivatedPercentage}%)");
                 this.enabled = false;
                 return;
             }
@@ -218,13 +218,11 @@ public class XRIntTest : MonoBehaviour
     /// </summary>
     private void ThreeDInteraction()
     {
-        Debug.Log($"Current 3D Interaction Pattern: {current3DInteractionPattern}");
         // Grab and trigger action
         if (current3DInteractionPattern.Contains("grab") && current3DInteractionPattern.Contains("trigger"))
         {
             if (!isGrabHeld && grabActionCount == 0 && combinedActionCount == 0)
             {
-                Debug.Log("Hold Grab and Trigger");
                 StartCoroutine(HoldGrabAndTrigger());
             }
         }

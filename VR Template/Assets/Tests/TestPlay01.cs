@@ -16,19 +16,12 @@ namespace XRintTestLib
 {
     public class TestPlay01
     {
-        private bool cubeWasGrabbed = false;
 
-        // A Test behaves as an ordinary method
-        // [Test]
-        // public void TestPlay01SimplePasses()
-        // {
-        //     // Use the Assert class to test conditions
-        // }
+        GameObject origin;
+        GameObject rightController;
 
-        // A UnityTest behaves like a coroutine in Play Mode. In Edit Mode you can use
-        // `yield return null;` to skip a frame.
-        [UnityTest]
-        public IEnumerator TestPlay01WithEnumeratorPasses()
+        [UnitySetUp]
+        public IEnumerator SetUp()
         {
             // Load the scene containing the cube
             yield return SceneManager.LoadSceneAsync("SampleScene", LoadSceneMode.Single);
@@ -36,37 +29,35 @@ namespace XRintTestLib
             // Wait for scene to fully load
             yield return new WaitForSeconds(0.1f);
 
+            origin = GameObject.Find("XR Origin (XR Rig)");
+            Assert.IsNotNull(origin, "Origin not found in the scene.");
+
+            rightController = GameObject.Find("Right Controller");
+            Assert.IsNotNull(rightController, "Right Controller not found in the scene.");
+        }
+
+        [UnityTest]
+        public IEnumerator TestPlay01WithEnumeratorPasses()
+        {
             var cubeObj = FindGameObjectWithName("Cube Interactable");
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
 
-            var xrBaseInteractable = cubeObj.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
-            Assert.IsNotNull(xrBaseInteractable, "XRBaseInteractable not found on Cube Interactable.");
+            // Register interaction listener using the reusable API
+            var cubeListener = RegisterInteractionListener(cubeObj);
+            Assert.IsNotNull(cubeListener, "Failed to register interaction listener for cube.");
 
-            // Register the listener
-            xrBaseInteractable.selectEntered.AddListener((args) =>
-            {
-                Debug.Log("Cube OnSelectEntered triggered!");
-                cubeWasGrabbed = true;
-            });
-
-            var player = GameObject.Find("XR Origin (XR Rig)");
-            Assert.IsNotNull(player, "Player or Camera not found in the scene.");
-
-            var rightController = GameObject.Find("Right Controller");
-            Assert.IsNotNull(rightController, "Right Controller not found in the scene.");
-
-            // 1. Navigate player to Cube Interactable
-            yield return NavigateToObject(player.transform, cubeObj.transform);
+            // 1. Navigate origin to Cube Interactable
+            yield return NavigateToObject(origin.transform, cubeObj.transform);
 
             // 2. Move controller to Cube Interactable
             yield return MoveControllerToObject(rightController.transform, cubeObj.transform);
 
-            // 3. Grab the cube
-            yield return ControllerGrabAction();
+            // 3. Grab the cube and move it
+            Debug.Log("Attempting to grab and move the cube...");
+            yield return GrabAndMoveUp(1.0f);
 
-            Assert.IsTrue(cubeWasGrabbed, "Cube's OnSelectEntered was not triggered.");
-
-            yield return null;
+            AssertGrabbed(cubeListener, "Cube should have been grabbed");
+            UnregisterInteractionListener(cubeObj, cubeListener);
         }
     }
 }

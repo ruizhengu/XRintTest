@@ -131,25 +131,23 @@ namespace XRintTestLib
         {
             yield return GrabStart();
             yield return new WaitForSeconds(duration);
+        }
+
+        public static IEnumerator GrabRelease()
+        {
             yield return GrabEnd();
         }
 
         // ===== MOVEMENT ACTIONS =====
-        public static IEnumerator MoveStart(Key movementKey)
+        public static IEnumerator MoveStart(Key[] movementKey)
         {
-            yield return PressKey(movementKey);
+            yield return PressKeys(movementKey);
         }
 
-        public static IEnumerator MoveEnd(Key movementKey)
-        {
-            yield return ReleaseKey(movementKey);
-        }
-
-        public static IEnumerator MoveAndHold(Key movementKey, float duration = 1.0f)
+        public static IEnumerator MoveAndHold(Key[] movementKey, float duration = 1.0f)
         {
             yield return MoveStart(movementKey);
             yield return new WaitForSeconds(duration);
-            yield return MoveEnd(movementKey);
         }
 
         // ===== COMBINED ACTIONS =====
@@ -164,96 +162,6 @@ namespace XRintTestLib
 
             // Release both keys
             yield return ReleaseAllKeys();
-        }
-
-        public static IEnumerator GrabAndMoveContinuous(Key movementKey, float duration = 1.0f)
-        {
-            // Start grab first
-            yield return GrabStart();
-
-            // Then start movement while grab is held
-            yield return MoveStart(movementKey);
-
-            // Hold for specified duration
-            yield return new WaitForSeconds(duration);
-
-            // Release movement first, then grab
-            yield return MoveEnd(movementKey);
-            yield return GrabEnd();
-        }
-
-        // ===== DIRECTIONAL MOVEMENT HELPERS =====
-        public static IEnumerator GrabAndMoveLeft(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.A, duration);
-        }
-
-        public static IEnumerator GrabAndMoveRight(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.D, duration);
-        }
-
-        public static IEnumerator GrabAndMoveForward(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.W, duration);
-        }
-
-        public static IEnumerator GrabAndMoveBackward(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.S, duration);
-        }
-
-        public static IEnumerator GrabAndMoveUp(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.E, duration);
-        }
-
-        public static IEnumerator GrabAndMoveDown(float duration = 1.0f)
-        {
-            yield return GrabAndMove(Key.Q, duration);
-        }
-
-        // ===== COMPLEX MOVEMENT PATTERNS =====
-        public static IEnumerator GrabAndMovePattern(Key[] movementSequence, float durationPerMove = 0.5f)
-        {
-            yield return GrabStart();
-
-            foreach (Key movementKey in movementSequence)
-            {
-                yield return MoveStart(movementKey);
-                yield return new WaitForSeconds(durationPerMove);
-                yield return MoveEnd(movementKey);
-            }
-
-            yield return GrabEnd();
-        }
-
-        // public static IEnumerator GrabAndMoveSquare(float durationPerSide = 0.5f)
-        // {
-        //     Key[] squarePattern = { Key.W, Key.D, Key.S, Key.A }; // Forward, Right, Back, Left
-        //     yield return GrabAndMovePattern(squarePattern, durationPerSide);
-        // }
-
-        // public static IEnumerator GrabAndMoveCircle(float durationPerMove = 0.3f)
-        // {
-        //     Key[] circlePattern = { Key.W, Key.E, Key.D, Key.Q, Key.S, Key.Q, Key.A, Key.E }; // Complex circular pattern
-        //     yield return GrabAndMovePattern(circlePattern, durationPerMove);
-        // }
-
-        // ===== LEGACY COMPATIBILITY =====
-        public static IEnumerator ControllerGrabAction()
-        {
-            yield return GrabStart();
-        }
-
-        public static IEnumerator ControllerReleaseGrabAction()
-        {
-            yield return GrabEnd();
-        }
-
-        public static IEnumerator ControllerGrabAndMove(Key movementKey)
-        {
-            yield return GrabAndMove(movementKey, 1.0f);
         }
 
         // ===== INTERACTION LISTENER MANAGEMENT =====
@@ -341,18 +249,6 @@ namespace XRintTestLib
                 Debug.Log($"InteractionListener unregistered from '{interactableObject.name}'");
             }
         }
-
-        // public static InteractionListener RegisterInteractionListenerByName(string interactableName)
-        // {
-        //     var interactableObject = GameObject.Find(interactableName);
-        //     if (interactableObject == null)
-        //     {
-        //         Debug.LogError($"Interactable object '{interactableName}' not found in scene");
-        //         return null;
-        //     }
-
-        //     return RegisterInteractionListener(interactableObject);
-        // }
 
         // ===== ASSERTION HELPERS =====
         public static void AssertGrabbed(InteractionListener listener, string message = "Object was not grabbed")

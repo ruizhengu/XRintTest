@@ -41,6 +41,7 @@ namespace XRintTestLib
         {
             var cubeObj = FindGameObjectWithName("Cube Interactable");
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
+            // TODO: integrate teh listener registration in finding object, and the assertion could just use the object
 
             // Register interaction listener using the reusable API
             var cubeListener = RegisterInteractionListener(cubeObj);
@@ -52,9 +53,19 @@ namespace XRintTestLib
             // 2. Move controller to Cube Interactable
             yield return MoveControllerToObject(rightController.transform, cubeObj.transform);
 
-            // 3. Grab the cube and move it
-            Debug.Log("Attempting to grab and move the cube...");
-            yield return GrabAndMoveUp(1.0f);
+            // 3. Grab the cube and move it using ActionBuilder pattern
+            Debug.Log("Attempting to grab and move the cube using ActionBuilder...");
+
+            // Example of the fluent API chain: GrabHold().MoveUp()
+            var action = new ActionBuilder();
+            action.GrabHold(1.0f)
+                  .MoveUp(0.5f)
+                  .GrabRelease();
+
+            yield return action.Execute();
+
+            // Wait 5 seconds to end the test session
+            yield return new WaitForSeconds(3.0f);
 
             AssertGrabbed(cubeListener, "Cube should have been grabbed");
             UnregisterInteractionListener(cubeObj, cubeListener);

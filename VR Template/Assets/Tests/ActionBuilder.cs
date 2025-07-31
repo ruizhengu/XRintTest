@@ -12,12 +12,9 @@ namespace XRintTestLib
     /// </summary>
     public class ActionBuilder
     {
-        Key grabKey = Key.G;
-        Key triggerKey = Key.T;
         private bool _grabbed = false;
         private bool _triggered = false;
         private readonly List<ActionStep> _actionSteps = new List<ActionStep>();
-        // private MonoBehaviour _coroutineRunner;
 
         public ActionBuilder()
         {
@@ -30,9 +27,10 @@ namespace XRintTestLib
         private class ActionStep
         {
             public Func<IEnumerator> Action { get; set; }
+            public string Description { get; set; }
             public float? Duration { get; set; }
 
-            public ActionStep(Func<IEnumerator> action, float? duration = null)
+            public ActionStep(Func<IEnumerator> action, string description = "", float? duration = null)
             {
                 Action = action;
                 Duration = duration;
@@ -40,30 +38,6 @@ namespace XRintTestLib
         }
 
         #region Grab Actions
-
-        /// <summary>
-        /// Start grabbing (press grab key)
-        /// </summary>
-        public ActionBuilder GrabStart()
-        {
-            _actionSteps.Add(new ActionStep(
-                () => TestLib.GrabStart(),
-                "Grab Start"
-            ));
-            return this;
-        }
-
-        /// <summary>
-        /// End grabbing (release grab key)
-        /// </summary>
-        public ActionBuilder GrabEnd()
-        {
-            _actionSteps.Add(new ActionStep(
-                () => TestLib.GrabEnd(),
-                "Grab End"
-            ));
-            return this;
-        }
 
         /// <summary>
         /// Grab and hold for a duration
@@ -100,36 +74,21 @@ namespace XRintTestLib
         {
             if (_grabbed == true)
             {
-                // If grabbed, use PressKeys to hold both grab and movement keys
                 _actionSteps.Add(new ActionStep(
-                    () => TestLib.PressKeys(new Key[] { grabKey, movementKey }),
-                    $"Move Hold {movementKey} while grabbed ({duration}s)",
-                    duration
-                ));
-
-                // Add a wait action
-                _actionSteps.Add(new ActionStep(
-                    () => WaitForSeconds(duration),
-                    $"Wait while holding {movementKey}",
-                    duration
-                ));
-
-                // Release all keys
-                _actionSteps.Add(new ActionStep(
-                    () => TestLib.ReleaseAllKeys(),
-                    $"Release all keys"
-                ));
-            }
-            else
-            {
-                // If not grabbed, use normal MoveAndHold
-                // TODO: support both list Key[] and single Key
-                _actionSteps.Add(new ActionStep(
-                    () => TestLib.MoveAndHold(new Key[] { movementKey }, duration),
+                    () => TestLib.GrabAndMoveHold(movementKey, duration),
                     $"Move Hold {movementKey} ({duration}s)",
                     duration
                 ));
             }
+            else
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.MoveHold(movementKey, duration),
+                    $"Move Hold {movementKey} ({duration}s)",
+                    duration
+                ));
+            }
+
             return this;
         }
 
@@ -218,15 +177,6 @@ namespace XRintTestLib
         /// Get the number of actions in the chain
         /// </summary>
         public int Count => _actionSteps.Count;
-
-        #endregion
-
-        #region Helper Methods
-
-        private IEnumerator WaitForSeconds(float duration)
-        {
-            yield return new WaitForSeconds(duration);
-        }
 
         #endregion
     }

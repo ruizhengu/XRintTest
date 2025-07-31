@@ -11,6 +11,8 @@ namespace XRintTestLib
 {
     public static class TestLib
     {
+        private static Key grabKey = Key.G;
+        private static Key triggerKey = Key.T;
         private static float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
 
         public static GameObject FindGameObjectWithName(string name)
@@ -93,18 +95,14 @@ namespace XRintTestLib
             yield return null; // Wait one frame to ensure the key press is registered
         }
 
-        public static IEnumerator PressKey(Key key)
+        public static IEnumerator PressKeys(Key key)
         {
             return PressKeys(new Key[] { key });
         }
 
-        public static IEnumerator ReleaseKey(Key key)
+        public static IEnumerator PressKey(Key key)
         {
-            var keyboard = InputSystem.GetDevice<Keyboard>();
-            if (keyboard == null) yield break;
-            // Release the key
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-            yield return null; // Wait one frame to ensure the key release is registered
+            return PressKeys(new Key[] { key });
         }
 
         public static IEnumerator ReleaseAllKeys()
@@ -122,11 +120,6 @@ namespace XRintTestLib
             yield return PressKey(Key.G);
         }
 
-        public static IEnumerator GrabEnd()
-        {
-            yield return ReleaseKey(Key.G);
-        }
-
         public static IEnumerator GrabAndHold(float duration = 1.0f)
         {
             yield return GrabStart();
@@ -135,33 +128,21 @@ namespace XRintTestLib
 
         public static IEnumerator GrabRelease()
         {
-            yield return GrabEnd();
+            yield return ReleaseAllKeys();
         }
 
         // ===== MOVEMENT ACTIONS =====
-        public static IEnumerator MoveStart(Key[] movementKey)
+        public static IEnumerator GrabAndMoveHold(Key movementKey, float duration = 1.0f)
+        {
+            Key[] composeKey = { grabKey, movementKey };
+            yield return PressKeys(composeKey);
+            yield return new WaitForSeconds(duration);
+        }
+
+        public static IEnumerator MoveHold(Key movementKey, float duration = 1.0f)
         {
             yield return PressKeys(movementKey);
-        }
-
-        public static IEnumerator MoveAndHold(Key[] movementKey, float duration = 1.0f)
-        {
-            yield return MoveStart(movementKey);
             yield return new WaitForSeconds(duration);
-        }
-
-        // ===== COMBINED ACTIONS =====
-        public static IEnumerator GrabAndMove(Key movementKey, float duration = 1.0f)
-        {
-            // Start both grab and movement simultaneously
-            Key[] combinedKeys = { Key.G, movementKey };
-            yield return PressKeys(combinedKeys);
-
-            // Hold for specified duration
-            yield return new WaitForSeconds(duration);
-
-            // Release both keys
-            yield return ReleaseAllKeys();
         }
 
         // ===== INTERACTION LISTENER MANAGEMENT =====
@@ -309,14 +290,6 @@ namespace XRintTestLib
                 yield break;
             }
             yield break;
-        }
-
-        public static IEnumerator ControllerMovementSustained(Key movementKey, Key actionKey, float duration = 1.0f)
-        {
-            Key[] composeKeys = { movementKey, actionKey };
-            yield return PressKeys(composeKeys);
-            yield return new WaitForSeconds(duration);
-            yield return ReleaseKey(movementKey);
         }
 
         public static IEnumerator MoveControllerInDirection(Transform controller, Vector3 direction)

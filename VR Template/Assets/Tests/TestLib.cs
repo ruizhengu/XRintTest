@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
@@ -15,25 +16,57 @@ namespace XRintTestLib
         private static Key triggerKey = Key.T;
         private static float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
 
+        // Dictionary to track existing listeners to avoid duplicates
+        private static Dictionary<GameObject, InteractionListener> registeredListeners = new Dictionary<GameObject, InteractionListener>();
+
         public static GameObject FindGameObjectWithName(string name)
         {
-            return GameObject.Find(name);
+            GameObject foundObject = GameObject.Find(name);
+            if (foundObject == null)
+            {
+                Debug.LogError($"GameObject with name '{name}' not found in the scene.");
+                return null;
+            }
+
+            // Check if listener already exists for this object
+            if (registeredListeners.TryGetValue(foundObject, out InteractionListener existingListener))
+            {
+                Debug.Log($"InteractionListener already exists for '{name}', using existing listener.");
+                return foundObject;
+            }
+
+            // Register new listener
+            InteractionListener newListener = RegisterInteractionListener(foundObject);
+            if (newListener != null)
+            {
+                registeredListeners[foundObject] = newListener;
+                Debug.Log($"Automatically registered new InteractionListener for '{name}'.");
+            }
+
+            return foundObject;
         }
-        public static IEnumerator NavigateToObject(Transform player, Transform target, float moveSpeed = 1.0f, float interactionAngle = 5.0f, float interactionDistance = 1.0f)
+
+        // Overload for backward compatibility - returns only the GameObject
+        public static GameObject FindGameObjectWithName(string name, bool returnOnlyGameObject = true)
+        {
+            var result = FindGameObjectWithName(name);
+            return result;
+        }
+        public static IEnumerator NavigateToObject(GameObject player, GameObject target, float moveSpeed = 1.0f, float interactionAngle = 5.0f, float interactionDistance = 1.0f)
         {
             while (true)
             {
-                Vector3 currentPos = player.position;
-                Vector3 targetPos = target.position;
+                Vector3 currentPos = player.transform.position;
+                Vector3 targetPos = target.transform.position;
 
                 // Rotation (only rotate y-axis)
                 Vector3 targetDirection = (targetPos - currentPos).normalized;
                 targetDirection.y = 0;
-                float angle = Vector3.Angle(player.forward, targetDirection);
+                float angle = Vector3.Angle(player.transform.forward, targetDirection);
                 if (angle > interactionAngle)
                 {
                     Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-                    player.rotation = Quaternion.Slerp(player.rotation, targetRotation, moveSpeed * Time.deltaTime);
+                    player.transform.rotation = Quaternion.Slerp(player.transform.rotation, targetRotation, moveSpeed * Time.deltaTime);
                     yield return null;
                     continue;
                 }
@@ -49,7 +82,7 @@ namespace XRintTestLib
                         new Vector3(targetPos.x, currentPos.y, targetPos.z),
                         moveSpeed * Time.deltaTime
                     );
-                    player.position = newPosition;
+                    player.transform.position = newPosition;
                     yield return null;
                     continue;
                 }
@@ -57,19 +90,19 @@ namespace XRintTestLib
             }
         }
 
-        public static IEnumerator MoveControllerToObject(Transform controller, Transform target, float moveSpeed = 1.0f, float threshold = 0.05f)
+        public static IEnumerator MoveControllerToObject(GameObject controller, GameObject target, float moveSpeed = 1.0f, float threshold = 0.05f)
         {
             yield return ExecuteKeyWithDuration(Key.RightBracket, 0.01f);
             while (true)
             {
-                Vector3 controllerCurrentPos = controller.position;
-                Vector3 controllerTargetPos = target.position;
+                Vector3 controllerCurrentPos = controller.transform.position;
+                Vector3 controllerTargetPos = target.transform.position;
                 float distanceToTarget = Vector3.Distance(controllerCurrentPos, controllerTargetPos);
                 if (distanceToTarget <= threshold)
                     break;
 
                 Vector3 controllerWorldDirection = GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
-                yield return MoveControllerInDirection(controller, controllerWorldDirection.normalized);
+                yield return MoveControllerInDirection(controller.transform, controllerWorldDirection.normalized);
                 yield return null; // Wait a frame before next move
             }
         }
@@ -231,17 +264,36 @@ namespace XRintTestLib
             }
         }
 
-        // ===== ASSERTION HELPERS =====
-        public static void AssertGrabbed(InteractionListener listener, string message = "Object was not grabbed")
+        public static void UnregisterInteractionListener(GameObject interactableObject)
         {
+            if (registeredListeners.TryGetValue(interactableObject, out InteractionListener listener))
+            {
+                UnregisterInteractionListener(interactableObject, listener);
+                registeredListeners.Remove(interactableObject);
+            }
+        }
+
+        // ===== ASSERTION HELPERS =====
+        public static void AssertGrabbed(GameObject gameObject, string message = "Object was not grabbed")
+        {
+            if (!registeredListeners.TryGetValue(gameObject, out InteractionListener listener))
+            {
+                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindGameObjectWithName first.");
+            }
+            // AssertGrabbed(listener, message);
             if (!listener.WasGrabbed)
             {
                 throw new System.Exception($"{message}. Last interaction: {listener.LastInteractableName} at {listener.LastInteractionTime}");
             }
         }
 
-        public static void AssertTriggered(InteractionListener listener, string message = "Object was not triggered")
+        public static void AssertTriggered(GameObject gameObject, string message = "Object was not triggered")
         {
+            if (!registeredListeners.TryGetValue(gameObject, out InteractionListener listener))
+            {
+                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindGameObjectWithName first.");
+            }
+            // AssertTriggered(listener, message);
             if (!listener.WasTriggered)
             {
                 throw new System.Exception($"{message}. Last interaction: {listener.LastInteractableName} at {listener.LastInteractionTime}");
@@ -253,15 +305,6 @@ namespace XRintTestLib
             if (!listener.WasGrabbed && !listener.WasTriggered)
             {
                 throw new System.Exception($"{message}. Last interaction: {listener.LastInteractableName} at {listener.LastInteractionTime}");
-            }
-        }
-
-        public static void AssertInteractionWithinTime(InteractionListener listener, float maxWaitTimeSeconds, string message = "Interaction did not occur within expected time")
-        {
-            var timeSinceInteraction = System.DateTime.Now - listener.LastInteractionTime;
-            if (timeSinceInteraction.TotalSeconds > maxWaitTimeSeconds)
-            {
-                throw new System.Exception($"{message}. Last interaction was {timeSinceInteraction.TotalSeconds:F2} seconds ago");
             }
         }
 

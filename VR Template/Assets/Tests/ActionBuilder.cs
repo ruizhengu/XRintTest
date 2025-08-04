@@ -40,6 +40,18 @@ namespace XRintTestLib
         #region Grab Actions
 
         /// <summary>
+        /// Instant grab action
+        /// </summary>
+        public ActionBuilder Grab()
+        {
+            _actionSteps.Add(new ActionStep(
+                () => TestLib.Grab(),
+                $"Grab"
+            ));
+            return this;
+        }
+
+        /// <summary>
         /// Grab and hold for a duration
         /// </summary>
         public ActionBuilder GrabHold(float duration = 1.0f)
@@ -53,13 +65,62 @@ namespace XRintTestLib
             return this;
         }
 
-        public ActionBuilder GrabRelease()
+        public ActionBuilder ReleaseAllKeys()
         {
             _actionSteps.Add(new ActionStep(
-                () => TestLib.GrabRelease(),
-                "Grab Release"
+                () => TestLib.ReleaseAllKeys(),
+                "Release All Keys"
             ));
             _grabbed = false;
+            _triggered = false;
+            return this;
+        }
+
+        #endregion
+
+        #region Trigger Actions
+
+        /// <summary>
+        /// Instant trigger action
+        /// </summary>
+        public ActionBuilder Trigger()
+        {
+            if (_grabbed == true)
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.GrabHoldAndTrigger(),
+                    "Grab Hold and Trigger"
+                ));
+            }
+            else
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.Trigger(),
+                    "Trigger"
+                ));
+            }
+            return this;
+        }
+
+        public ActionBuilder TriggerHold(float duration = 1.0f)
+        {
+            if (_grabbed == true)
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.GrabHoldAndTriggerHold(duration),
+                    $"Grab Hold and Trigger Hold ({duration}s)",
+                    duration
+                ));
+            }
+            else
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.TriggerAndHold(duration),
+                    $"Trigger Hold ({duration}s)",
+                    duration
+                ));
+            }
+            _triggered = true;
             return this;
         }
 
@@ -94,7 +155,7 @@ namespace XRintTestLib
 
         #endregion
 
-        #region Directional Movement Helpers
+        #region Directional Movement/Rotation Helpers
 
         /// <summary>
         /// Move up (E key)
@@ -142,6 +203,38 @@ namespace XRintTestLib
         public ActionBuilder MoveRight(float duration = 1.0f)
         {
             return MoveHold(Key.D, duration);
+        }
+
+        /// <summary>
+        /// Rotate yaw left (Left Arrow key)
+        /// </summary>
+        public ActionBuilder RotateLeft(float duration = 0.1f)
+        {
+            return MoveHold(Key.LeftArrow, duration);
+        }
+
+        /// <summary>
+        /// Rotate yaw right (Right Arrow key)
+        /// </summary>
+        public ActionBuilder RotateRight(float duration = 0.1f)
+        {
+            return MoveHold(Key.RightArrow, duration);
+        }
+
+        /// <summary>
+        /// Rotate pitch up (Up Arrow key)
+        /// </summary>
+        public ActionBuilder RotateUp(float duration = 0.1f)
+        {
+            return MoveHold(Key.UpArrow, duration);
+        }
+
+        /// <summary>
+        /// Rotate pitch down (Down Arrow key)
+        /// </summary>
+        public ActionBuilder RotateDown(float duration = 0.1f)
+        {
+            return MoveHold(Key.DownArrow, duration);
         }
 
         #endregion

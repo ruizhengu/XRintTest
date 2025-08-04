@@ -37,7 +37,7 @@ namespace XRintTestLib
         }
 
         [UnityTest]
-        public IEnumerator TestPlay01WithEnumeratorPasses()
+        public IEnumerator TestGrabCube()
         {
             var cubeObj = FindGameObjectWithName("Cube Interactable");
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
@@ -49,11 +49,33 @@ namespace XRintTestLib
             var action = new ActionBuilder();
             action.GrabHold(1.0f)
                   .MoveUp(0.5f)
-                  .GrabRelease();
+                  .ReleaseAllKeys();
             yield return action.Execute();
             // Wait 5 seconds to end the test session
             yield return new WaitForSeconds(3.0f);
             AssertGrabbed(cubeObj, "Cube should have been grabbed");
+        }
+
+        [UnityTest]
+        public IEnumerator TestTriggerBlaster()
+        {
+            var blasterObj = FindGameObjectWithName("Blaster Variant");
+            Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
+            // 1. Navigate origin to Blaster Interactable
+            yield return NavigateToObject(origin, blasterObj);
+            // 2. Move controller to Cube Interactable
+            yield return MoveControllerToObject(rightController, blasterObj);
+            // 3. Grab the blaster and trigger it using ActionBuilder pattern
+            var action = new ActionBuilder();
+            action.GrabHold(1.0f)
+                  .RotateLeft(0.1f)
+                  .Trigger()
+                  .ReleaseAllKeys();
+            yield return action.Execute();
+            // Wait 5 seconds to end the test session
+            yield return new WaitForSeconds(3.0f);
+            AssertGrabbed(blasterObj, "Blaster should have been grabbed");
+            AssertTriggered(blasterObj, "Blaster should have been triggered");
         }
     }
 }

@@ -148,20 +148,49 @@ namespace XRintTestLib
         }
 
         // ===== GRAB ACTIONS =====
-        public static IEnumerator GrabStart()
+        public static IEnumerator Grab()
         {
             yield return PressKey(Key.G);
         }
 
         public static IEnumerator GrabAndHold(float duration = 1.0f)
         {
-            yield return GrabStart();
+            yield return Grab();
             yield return new WaitForSeconds(duration);
         }
 
         public static IEnumerator GrabRelease()
         {
             yield return ReleaseAllKeys();
+        }
+
+        // ===== TRIGGER ACTIONS =====
+        public static IEnumerator Trigger()
+        {
+            yield return PressKey(Key.T);
+        }
+
+        public static IEnumerator TriggerAndHold(float duration = 1.0f)
+        {
+            yield return Trigger();
+            yield return new WaitForSeconds(duration);
+        }
+
+        public static IEnumerator TriggerRelease()
+        {
+            yield return ReleaseAllKeys();
+        }
+
+        public static IEnumerator GrabHoldAndTrigger()
+        {
+            Key[] composeKey = { grabKey, triggerKey };
+            yield return PressKeys(composeKey);
+        }
+
+        public static IEnumerator GrabHoldAndTriggerHold(float duration = 1.0f)
+        {
+            yield return GrabHoldAndTrigger();
+            yield return new WaitForSeconds(duration);
         }
 
         // ===== MOVEMENT ACTIONS =====

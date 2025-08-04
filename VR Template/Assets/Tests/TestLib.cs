@@ -329,6 +329,22 @@ namespace XRintTestLib
             }
         }
 
+        public static void AssertRotated(GameObject gameObject, Quaternion rotation, string message = "Object was not rotated")
+        {
+            if (gameObject.transform.rotation == rotation)
+            {
+                throw new System.Exception($"{message}. Last interaction: {gameObject.transform.name} at {System.DateTime.Now}");
+            }
+        }
+
+        public static void AssertTranslated(GameObject gameObject, Vector3 position, string message = "Object was not moved")
+        {
+            if (gameObject.transform.position == position)
+            {
+                throw new System.Exception($"{message}. Last interaction: {gameObject.transform.name} at {System.DateTime.Now}");
+            }
+        }
+
         public static void AssertInteracted(InteractionListener listener, string message = "Object was not interacted with")
         {
             if (!listener.WasGrabbed && !listener.WasTriggered)

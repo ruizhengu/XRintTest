@@ -40,6 +40,7 @@ namespace XRintTestLib
         public IEnumerator TestGrabCube()
         {
             var cubeObj = FindGameObjectWithName("Cube Interactable");
+            var cubePosition = cubeObj.transform.position;
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
             // 1. Navigate origin to Cube Interactable
             yield return NavigateToObject(origin, cubeObj);
@@ -51,15 +52,16 @@ namespace XRintTestLib
                   .MoveUp(0.5f)
                   .ReleaseAllKeys();
             yield return action.Execute();
-            // Wait 5 seconds to end the test session
-            yield return new WaitForSeconds(3.0f);
             AssertGrabbed(cubeObj, "Cube should have been grabbed");
+            AssertTranslated(cubeObj, cubePosition, "Cube should have been moved");
+            yield return new WaitForSeconds(1.0f);
         }
 
         [UnityTest]
         public IEnumerator TestTriggerBlaster()
         {
             var blasterObj = FindGameObjectWithName("Blaster Variant");
+            var blasterRotation = blasterObj.transform.rotation;
             Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
             // 1. Navigate origin to Blaster Interactable
             yield return NavigateToObject(origin, blasterObj);
@@ -72,10 +74,10 @@ namespace XRintTestLib
                   .Trigger()
                   .ReleaseAllKeys();
             yield return action.Execute();
-            // Wait 5 seconds to end the test session
-            yield return new WaitForSeconds(3.0f);
             AssertGrabbed(blasterObj, "Blaster should have been grabbed");
             AssertTriggered(blasterObj, "Blaster should have been triggered");
+            AssertRotated(blasterObj, blasterRotation, "Blaster should have been rotated");
+            yield return new WaitForSeconds(1.0f);
         }
     }
 }

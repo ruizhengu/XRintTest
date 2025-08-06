@@ -43,9 +43,15 @@ namespace XRintTestLib
             var cubePosition = cubeObj.transform.position;
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
             // 1. Navigate origin to Cube Interactable
-            yield return NavigateToObject(origin, cubeObj);
+            // yield return NavigateToObject(origin, cubeObj);
+            yield return new ActionBuilder()
+                    .NavigateTo(origin, cubeObj)
+                    .Execute();
             // 2. Move controller to Cube Interactable
-            yield return MoveControllerToObject(rightController, cubeObj);
+            // yield return MoveControllerToObject(rightController, cubeObj);
+            yield return new ActionBuilder()
+                    .MoveControllerTo(rightController, cubeObj)
+                    .Execute();
             // 3. Grab the cube and move it using ActionBuilder pattern
             var action = new ActionBuilder();
             action.GrabHold(1.0f)
@@ -64,9 +70,13 @@ namespace XRintTestLib
             var blasterRotation = blasterObj.transform.rotation;
             Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
             // 1. Navigate origin to Blaster Interactable
-            yield return NavigateToObject(origin, blasterObj);
+            yield return new ActionBuilder()
+                    .NavigateTo(origin, blasterObj)
+                    .Execute();
             // 2. Move controller to Cube Interactable
-            yield return MoveControllerToObject(rightController, blasterObj);
+            yield return new ActionBuilder()
+                    .MoveControllerTo(rightController, blasterObj)
+                    .Execute();
             // 3. Grab the blaster and trigger it using ActionBuilder pattern
             var action = new ActionBuilder();
             action.GrabHold(1.0f)
@@ -77,6 +87,36 @@ namespace XRintTestLib
             AssertGrabbed(blasterObj, "Blaster should have been grabbed");
             AssertTriggered(blasterObj, "Blaster should have been triggered");
             AssertRotated(blasterObj, blasterRotation, "Blaster should have been rotated");
+            yield return new WaitForSeconds(1.0f);
+        }
+
+        [UnityTest]
+        public IEnumerator TestMoveCubeToBlaster()
+        {
+            var cubeObj = FindGameObjectWithName("Cube Interactable");
+            var cubePosition = cubeObj.transform.position;
+            Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
+            var blasterObj = FindGameObjectWithName("Blaster Variant");
+            var blasterRotation = blasterObj.transform.rotation;
+            Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
+
+            // 1. Navigate origin to the cube
+            yield return new ActionBuilder()
+                    .NavigateTo(origin, cubeObj)
+                    .Execute();
+            // 2. Move controller to the cube
+            yield return new ActionBuilder()
+                    .MoveControllerTo(rightController, cubeObj)
+                    .Execute();
+            // 3. Grab the cube and move it to the blaster
+            var action = new ActionBuilder();
+            action.GrabHold(1.0f)
+                  .NavigateTo(origin, blasterObj)
+                  .MoveControllerTo(rightController, blasterObj)
+                  .ReleaseAllKeys();
+            yield return action.Execute();
+            AssertGrabbed(cubeObj, "Cube should have been grabbed");
+            AssertTranslated(cubeObj, cubePosition, "Cube should have been moved");
             yield return new WaitForSeconds(1.0f);
         }
     }

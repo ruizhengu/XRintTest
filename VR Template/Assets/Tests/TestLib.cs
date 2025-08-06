@@ -15,7 +15,9 @@ namespace XRintTestLib
         private static Key grabKey = Key.G;
         private static Key triggerKey = Key.T;
         private static float controllerMovementThreshold = 0.05f; // The distance of controller movement to continue interaction
-
+        private static float moveSpeed = 1.0f;
+        private static float interactionAngle = 5.0f;
+        private static float interactionDistance = 1.0f;
         // Dictionary to track existing listeners to avoid duplicates
         private static Dictionary<GameObject, InteractionListener> registeredListeners = new Dictionary<GameObject, InteractionListener>();
 
@@ -52,10 +54,28 @@ namespace XRintTestLib
             var result = FindGameObjectWithName(name);
             return result;
         }
-        public static IEnumerator NavigateToObject(GameObject player, GameObject target, float moveSpeed = 1.0f, float interactionAngle = 5.0f, float interactionDistance = 1.0f)
+
+        /// <summary>
+        /// Navigates the player to the target object, optionally holding the grab key during navigation.
+        /// </summary>
+        /// <param name="player">The player GameObject to move.</param>
+        /// <param name="target">The target GameObject to move towards.</param>
+        /// <param name="moveSpeed">Movement speed.</param>
+        /// <param name="interactionAngle">Angle threshold for rotation.</param>
+        /// <param name="interactionDistance">Distance threshold for stopping.</param>
+        /// <param name="holdGrabKey">If true, will press the grab key each frame.</param>
+        public static IEnumerator NavigateToObject(
+            GameObject player,
+            GameObject target,
+            bool holdGrabKey = false)
         {
             while (true)
             {
+                if (holdGrabKey)
+                {
+                    yield return PressKey(grabKey);
+                }
+
                 Vector3 currentPos = player.transform.position;
                 Vector3 targetPos = target.transform.position;
 
@@ -90,33 +110,96 @@ namespace XRintTestLib
             }
         }
 
-        public static IEnumerator MoveControllerToObject(GameObject controller, GameObject target, float moveSpeed = 1.0f, float threshold = 0.05f)
+        /// <summary>
+        /// Navigates the player to the target object while holding the grab key.
+        /// </summary>
+        public static IEnumerator GrabHoldNavigateToObject(
+            GameObject player,
+            GameObject target)
         {
-            yield return ExecuteKeyWithDuration(Key.RightBracket, 0.01f);
+            yield return NavigateToObject(player, target, true);
+        }
+
+        public static IEnumerator MoveControllerToObject(GameObject controller, GameObject target, bool holdGrabKey = false)
+        {
+            if (!holdGrabKey)
+            {
+                yield return PressKey(Key.RightBracket);
+
+            }
             while (true)
             {
                 Vector3 controllerCurrentPos = controller.transform.position;
                 Vector3 controllerTargetPos = target.transform.position;
                 float distanceToTarget = Vector3.Distance(controllerCurrentPos, controllerTargetPos);
-                if (distanceToTarget <= threshold)
+                if (distanceToTarget <= controllerMovementThreshold)
                     break;
 
                 Vector3 controllerWorldDirection = GetControllerWorldDirection(controllerCurrentPos, controllerTargetPos);
-                yield return MoveControllerInDirection(controller.transform, controllerWorldDirection.normalized);
+                yield return MoveControllerInDirection(controller.transform, controllerWorldDirection.normalized, holdGrabKey);
                 yield return null; // Wait a frame before next move
             }
         }
 
-        public static IEnumerator ExecuteKeyWithDuration(Key key, float duration)
+        public static IEnumerator EnqueueMovementKeys(float x, float y, float z, Key[] additionalKeys = null)
         {
-            var keyboard = InputSystem.GetDevice<Keyboard>();
-            if (keyboard == null) yield break;
-            // Press the key
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
-            // Wait for the specified duration
-            yield return new WaitForSeconds(duration);
-            // Release the key
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            float threshold = controllerMovementThreshold;
+            float absX = Mathf.Abs(x);
+            float absY = Mathf.Abs(y);
+            float absZ = Mathf.Abs(z);
+
+            List<Key> keysToPress = new List<Key>();
+
+            // Add movement keys
+            if (absZ > threshold)
+            {
+                Key zKey = z > 0 ? Key.W : Key.S;
+                keysToPress.Add(zKey);
+            }
+            else if (absX > threshold)
+            {
+                Key xKey = x > 0 ? Key.D : Key.A;
+                keysToPress.Add(xKey);
+            }
+            else if (absY > threshold)
+            {
+                Key yKey = y > 0 ? Key.E : Key.Q;
+                keysToPress.Add(yKey);
+            }
+
+            // Add additional keys (like grab key)
+            if (additionalKeys != null)
+            {
+                keysToPress.AddRange(additionalKeys);
+            }
+
+            // Press all keys simultaneously
+            if (keysToPress.Count > 0)
+            {
+                yield return PressKeys(keysToPress.ToArray());
+            }
+        }
+
+        public static IEnumerator MoveControllerInDirection(Transform controller, Vector3 direction, bool holdGrabKey = false)
+        {
+            Vector3 controllerForward = controller.forward;
+            Vector3 controllerRight = controller.right;
+            Vector3 controllerUp = controller.up;
+            float zAxis = Vector3.Dot(direction, controllerForward);
+            float xAxis = Vector3.Dot(direction, controllerRight);
+            float yAxis = Vector3.Dot(direction, controllerUp);
+
+            Key[] additionalKeys = holdGrabKey ? new Key[] { grabKey } : null;
+            yield return EnqueueMovementKeys(xAxis, yAxis, zAxis, additionalKeys);
+        }
+
+        public static Vector3 GetControllerWorldDirection(Vector3 currentPos, Vector3 targetPos)
+        {
+            Vector3 controllerCurrentViewport = Camera.main.WorldToViewportPoint(currentPos);
+            Vector3 controllerTargetViewport = Camera.main.WorldToViewportPoint(targetPos);
+            Vector3 viewportDirection = controllerTargetViewport - controllerCurrentViewport;
+            Vector3 worldDirection = Camera.main.ViewportToWorldPoint(controllerCurrentViewport + viewportDirection.normalized * Time.deltaTime) - currentPos;
+            return worldDirection;
         }
 
         public static IEnumerator PressKeys(Key[] keys)
@@ -351,53 +434,6 @@ namespace XRintTestLib
             {
                 throw new System.Exception($"{message}. Last interaction: {listener.LastInteractableName} at {listener.LastInteractionTime}");
             }
-        }
-
-        public static IEnumerator EnqueueMovementKeys(float x, float y, float z)
-        {
-            float threshold = controllerMovementThreshold;
-            float absX = Mathf.Abs(x);
-            float absY = Mathf.Abs(y);
-            float absZ = Mathf.Abs(z);
-            if (absZ > threshold)
-            {
-                Key zKey = z > 0 ? Key.W : Key.S;
-                yield return ExecuteKeyWithDuration(zKey, 0.01f);
-                yield break;
-            }
-            if (absX > threshold)
-            {
-                Key xKey = x > 0 ? Key.D : Key.A;
-                yield return ExecuteKeyWithDuration(xKey, 0.01f);
-                yield break;
-            }
-            if (absY > threshold)
-            {
-                Key yKey = y > 0 ? Key.E : Key.Q;
-                yield return ExecuteKeyWithDuration(yKey, 0.01f);
-                yield break;
-            }
-            yield break;
-        }
-
-        public static IEnumerator MoveControllerInDirection(Transform controller, Vector3 direction)
-        {
-            Vector3 controllerForward = controller.forward;
-            Vector3 controllerRight = controller.right;
-            Vector3 controllerUp = controller.up;
-            float zAxis = Vector3.Dot(direction, controllerForward);
-            float xAxis = Vector3.Dot(direction, controllerRight);
-            float yAxis = Vector3.Dot(direction, controllerUp);
-            yield return EnqueueMovementKeys(xAxis, yAxis, zAxis);
-        }
-
-        public static Vector3 GetControllerWorldDirection(Vector3 currentPos, Vector3 targetPos)
-        {
-            Vector3 controllerCurrentViewport = Camera.main.WorldToViewportPoint(currentPos);
-            Vector3 controllerTargetViewport = Camera.main.WorldToViewportPoint(targetPos);
-            Vector3 viewportDirection = controllerTargetViewport - controllerCurrentViewport;
-            Vector3 worldDirection = Camera.main.ViewportToWorldPoint(controllerCurrentViewport + viewportDirection.normalized * Time.deltaTime) - currentPos;
-            return worldDirection;
         }
     }
 }

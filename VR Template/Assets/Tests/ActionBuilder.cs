@@ -149,7 +149,6 @@ namespace XRintTestLib
                     duration
                 ));
             }
-
             return this;
         }
 
@@ -235,6 +234,54 @@ namespace XRintTestLib
         public ActionBuilder RotateDown(float duration = 0.1f)
         {
             return MoveHold(Key.DownArrow, duration);
+        }
+
+        #endregion
+
+        #region Navigation Actions
+
+        /// <summary>
+        /// Navigate player to a target object
+        /// </summary>
+        public ActionBuilder NavigateTo(GameObject player, GameObject target, float moveSpeed = 1.0f, float interactionAngle = 5.0f, float interactionDistance = 1.0f)
+        {
+            if (_grabbed == true)
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.GrabHoldNavigateToObject(player, target),
+                    $"Grab Hold and Navigate to {target.name}"
+                ));
+            }
+            else
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.NavigateToObject(player, target),
+                    $"Navigate to {target.name}"
+                ));
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Move controller to a target object
+        /// </summary>
+        public ActionBuilder MoveControllerTo(GameObject controller, GameObject target)
+        {
+            if (_grabbed == true)
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.MoveControllerToObject(controller, target, true),
+                    $"Move controller to {target.name} while holding grab"
+                ));
+            }
+            else
+            {
+                _actionSteps.Add(new ActionStep(
+                    () => TestLib.MoveControllerToObject(controller, target),
+                    $"Move controller to {target.name}"
+                ));
+            }
+            return this;
         }
 
         #endregion

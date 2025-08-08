@@ -39,7 +39,7 @@ namespace XRintTestLib
         [UnityTest]
         public IEnumerator TestGrabCube()
         {
-            var cubeObj = FindGameObjectWithName("Cube Interactable");
+            var cubeObj = FindXRObject("Cube Interactable");
             var cubePosition = cubeObj.transform.position;
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
             // 1. Navigate origin to Cube Interactable
@@ -66,7 +66,7 @@ namespace XRintTestLib
         [UnityTest]
         public IEnumerator TestTriggerBlaster()
         {
-            var blasterObj = FindGameObjectWithName("Blaster Variant");
+            var blasterObj = FindXRObject("Blaster Variant");
             var blasterRotation = blasterObj.transform.rotation;
             Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
             // 1. Navigate origin to Blaster Interactable
@@ -93,10 +93,10 @@ namespace XRintTestLib
         [UnityTest]
         public IEnumerator TestMoveCubeToBlaster()
         {
-            var cubeObj = FindGameObjectWithName("Cube Interactable");
+            var cubeObj = FindXRObject("Cube Interactable");
             var cubePosition = cubeObj.transform.position;
             Assert.IsNotNull(cubeObj, "Cube Interactable not found in the scene.");
-            var blasterObj = FindGameObjectWithName("Blaster Variant");
+            var blasterObj = FindXRObject("Blaster Variant");
             var blasterRotation = blasterObj.transform.rotation;
             Assert.IsNotNull(blasterObj, "Blaster Interactable not found in the scene.");
 

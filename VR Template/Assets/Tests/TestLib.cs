@@ -21,13 +21,19 @@ namespace XRintTestLib
         // Dictionary to track existing listeners to avoid duplicates
         private static Dictionary<GameObject, InteractionListener> registeredListeners = new Dictionary<GameObject, InteractionListener>();
 
-        public static GameObject FindXRObject(string name)
+        public static GameObject FindXRObject(string name, bool returnOnlyGameObject = false)
         {
             GameObject foundObject = GameObject.Find(name);
             if (foundObject == null)
             {
                 Debug.LogError($"GameObject with name '{name}' not found in the scene.");
                 return null;
+            }
+
+            if (returnOnlyGameObject)
+            {
+                // Only return the GameObject, do not register or check listeners
+                return foundObject;
             }
 
             // Check if listener already exists for this object
@@ -46,40 +52,6 @@ namespace XRintTestLib
             }
 
             return foundObject;
-        }
-
-        public static GameObject FindObject(string name)
-        {
-            GameObject foundObject = GameObject.Find(name);
-            if (foundObject == null)
-            {
-                Debug.LogError($"GameObject with name '{name}' not found in the scene.");
-                return null;
-            }
-
-            // // Check if listener already exists for this object
-            // if (registeredListeners.TryGetValue(foundObject, out InteractionListener existingListener))
-            // {
-            //     Debug.Log($"InteractionListener already exists for '{name}', using existing listener.");
-            //     return foundObject;
-            // }
-
-            // // Register new listener
-            // InteractionListener newListener = RegisterInteractionListener(foundObject);
-            // if (newListener != null)
-            // {
-            //     registeredListeners[foundObject] = newListener;
-            //     Debug.Log($"Automatically registered new InteractionListener for '{name}'.");
-            // }
-
-            return foundObject;
-        }
-
-        // Overload for backward compatibility - returns only the GameObject
-        public static GameObject FindGameObjectWithName(string name, bool returnOnlyGameObject = true)
-        {
-            var result = FindGameObjectWithName(name);
-            return result;
         }
 
         /// <summary>
@@ -417,7 +389,7 @@ namespace XRintTestLib
         {
             if (!registeredListeners.TryGetValue(gameObject, out InteractionListener listener))
             {
-                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindGameObjectWithName first.");
+                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindXRObject first.");
             }
             // AssertGrabbed(listener, message);
             if (!listener.WasGrabbed)
@@ -430,7 +402,7 @@ namespace XRintTestLib
         {
             if (!registeredListeners.TryGetValue(gameObject, out InteractionListener listener))
             {
-                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindGameObjectWithName first.");
+                throw new System.Exception($"No InteractionListener found for GameObject '{gameObject.name}'. Make sure to call FindXRObject first.");
             }
             // AssertTriggered(listener, message);
             if (!listener.WasTriggered)

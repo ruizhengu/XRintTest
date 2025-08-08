@@ -21,7 +21,7 @@ namespace XRintTestLib
         // Dictionary to track existing listeners to avoid duplicates
         private static Dictionary<GameObject, InteractionListener> registeredListeners = new Dictionary<GameObject, InteractionListener>();
 
-        public static GameObject FindGameObjectWithName(string name)
+        public static GameObject FindXRObject(string name)
         {
             GameObject foundObject = GameObject.Find(name);
             if (foundObject == null)
@@ -44,6 +44,33 @@ namespace XRintTestLib
                 registeredListeners[foundObject] = newListener;
                 Debug.Log($"Automatically registered new InteractionListener for '{name}'.");
             }
+
+            return foundObject;
+        }
+
+        public static GameObject FindObject(string name)
+        {
+            GameObject foundObject = GameObject.Find(name);
+            if (foundObject == null)
+            {
+                Debug.LogError($"GameObject with name '{name}' not found in the scene.");
+                return null;
+            }
+
+            // // Check if listener already exists for this object
+            // if (registeredListeners.TryGetValue(foundObject, out InteractionListener existingListener))
+            // {
+            //     Debug.Log($"InteractionListener already exists for '{name}', using existing listener.");
+            //     return foundObject;
+            // }
+
+            // // Register new listener
+            // InteractionListener newListener = RegisterInteractionListener(foundObject);
+            // if (newListener != null)
+            // {
+            //     registeredListeners[foundObject] = newListener;
+            //     Debug.Log($"Automatically registered new InteractionListener for '{name}'.");
+            // }
 
             return foundObject;
         }

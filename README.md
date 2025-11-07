@@ -1,5 +1,16 @@
 # XRintTest
 
+# Reference
+
+```
+@INPROCEEDINGS{gu2025XRTestingTool,
+    author={Gu, Ruizhen and Rojas, José Miguel and Shin, Donghwan},
+    title={{XRintTest}: An Automated Framework for User Interaction Testing in Extended Reality Applications}, 
+    year={2025},
+    booktitle={40th IEEE/ACM International Conference on Automated Software Engineering (ASE)}, 
+}
+```
+
 # Instructions
 
 ## Requirement Checking/Installation

@@ -85,16 +85,43 @@ public static class Utils
     return worldDirection;
   }
 
+  private class InteractionGroup
+  {
+    public string interactor;
+    public string interactable;
+    public List<Newtonsoft.Json.Linq.JArray> interaction;
+  }
+
   /// <summary>
   /// Get the interaction events from the interaction_results.json file
   /// </summary>
   public static List<InteractionEvent> ParseInteractionGraph()
   {
-    string jsonPath = Path.Combine(Application.dataPath, "Scripts/scene_graph.json");
+    string jsonPath = Path.Combine(Application.dataPath, "Scripts/IFG.json");
     using (StreamReader r = new StreamReader(jsonPath))
     {
       string json = r.ReadToEnd();
-      List<InteractionEvent> interactionEvents = JsonConvert.DeserializeObject<List<InteractionEvent>>(json);
+      var groupedEvents = JsonConvert.DeserializeObject<List<InteractionGroup>>(json);
+      List<InteractionEvent> interactionEvents = new List<InteractionEvent>();
+
+      if (groupedEvents != null)
+      {
+        foreach (var group in groupedEvents)
+        {
+          if (group.interaction != null)
+          {
+            foreach (var interaction in group.interaction)
+            {
+              if (interaction.Count >= 2)
+              {
+                string type = interaction[0].ToString();
+                List<string> condition = interaction[1].ToObject<List<string>>();
+                interactionEvents.Add(new InteractionEvent(group.interactor, condition, group.interactable, type));
+              }
+            }
+          }
+        }
+      }
       return interactionEvents;
     }
   }

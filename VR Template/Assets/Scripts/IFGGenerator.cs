@@ -9,19 +9,12 @@ using System.Linq;
 
 public class IFGGenerator : EditorWindow
 {
-    // private static Dictionary<string, List<string>> interactionTypes;
-
     private static List<string> interactionScripts = new List<string> { 
         "XRGrabInteractable"};
 
     [MenuItem("Tools/Generate IFG")]
     public static void GenerateIFG()
     {
-        // Load interaction types from JSON
-        // string interactionJson = Path.Combine(Application.dataPath, "Scripts/interaction.json");
-        // string interactionContent = File.ReadAllText(interactionJson);
-        // interactionTypes = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(interactionContent);
-        
         GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
         // Rename duplicate GameObjects before processing
         RenameDuplicateGameObjects(rootObjects);
@@ -32,7 +25,16 @@ public class IFGGenerator : EditorWindow
             ProcessGameObject(rootObj, results);
         }
 
-        string resultJson = JsonConvert.SerializeObject(results, Formatting.Indented);
+        var groupedResults = results.GroupBy(r => r.interactable)
+            .Select(g => new
+            {
+                interactor = g.First().interactor,
+                interaction = g.Select(i => new object[] { i.interaction_type, i.condition }).ToList(),
+                interactable = g.Key
+            })
+            .ToList();
+
+        string resultJson = JsonConvert.SerializeObject(groupedResults, Formatting.Indented);
         string path = Path.Combine(Application.dataPath, "Scripts/IFG.json");
         File.WriteAllText(path, resultJson);
         Debug.Log($"Interaction results exported to {path}");

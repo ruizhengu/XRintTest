@@ -115,7 +115,21 @@ public static class Utils
               if (interaction.Count >= 2)
               {
                 string type = interaction[0].ToString();
-                List<string> condition = interaction[1].ToObject<List<string>>();
+                List<string> condition = new List<string>();
+                var token = interaction[1];
+                if (token.Type == Newtonsoft.Json.Linq.JTokenType.String)
+                {
+                    string condStr = token.ToString();
+                    if (!string.IsNullOrEmpty(condStr))
+                    {
+                        condition.Add(condStr);
+                    }
+                }
+                else if (token.Type == Newtonsoft.Json.Linq.JTokenType.Array)
+                {
+                    condition = token.ToObject<List<string>>();
+                }
+                
                 interactionEvents.Add(new InteractionEvent(group.interactor, condition, group.interactable, type));
               }
             }

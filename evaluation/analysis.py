@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.ticker import PercentFormatter
 
 scenes = [
@@ -10,6 +11,11 @@ scenes = [
     "GameJam",
     "EscapeProto",
     "EscapeRoom",
+    "XRToolKitEssentials",
+    "XRToolKitEssentials",
+    "XRToolKitEssentials",
+    "XRToolKitEssentials",
+    "XRToolKitEssentials",
     "Average"
 ]
 
@@ -24,18 +30,35 @@ x_labels = [
     "Scene 5",
     "Scene 6",
     "Scene 7",
+    "Scene 8",
+    "Scene 9",
+    "Scene 10",
+    "Scene 11",
+    "Scene 12",
     "Average"
 ]
 
 
 def all_scenes_plot():
-    fig, axes = plt.subplots(2, 4, figsize=(26, 10))
-    axes = axes.flatten()
+    fig = plt.figure(figsize=(40, 30))
+    gs = gridspec.GridSpec(4, 4, figure=fig)
 
-    for idx, target_scene in enumerate(scenes[:8]):
+    axes = []
+    # First 12 subplots in 3x4 structure
+    for i in range(12):
+        axes.append(fig.add_subplot(gs[i // 4, i % 4]))
+    
+    # Last subplot centered in the new row
+    axes.append(fig.add_subplot(gs[3, 1:3]))
+
+    for idx, target_scene in enumerate(scenes):
+        if idx >= len(axes):
+            break
         ax = axes[idx]
         # Read both sheets
-        df_interactobot = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-InteractoBot')
+        sheet_name_xr = f'{target_scene}-XRintTest'
+
+        df_interactobot = pd.read_excel('results.xlsx', sheet_name=sheet_name_xr)
 
         df_random = pd.read_excel('results.xlsx', sheet_name=f'{target_scene}-Random')
         df_interactobot['Coverage'] = df_interactobot['Coverage'].astype(float)*100
@@ -76,10 +99,6 @@ def all_scenes_plot():
         ax.set_title(x_labels[idx], fontsize=20, fontweight='bold')
         ax.set_xlabel('Time (minutes)', fontsize=20)
         ax.set_ylabel('XUI Coverage (%)', fontsize=20)
-
-    # Hide any unused subplots
-    for j in range(len(scenes), 8):
-        fig.delaxes(axes[j])
 
     # Use handles and labels from the first subplot for the legend
     handles, legend_labels = ax.get_legend_handles_labels()
@@ -143,5 +162,5 @@ def average_plot():
 
 
 if __name__ == "__main__":
-    # all_scenes_plot()
-    average_plot()
+    all_scenes_plot()
+    # average_plot()

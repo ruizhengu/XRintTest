@@ -40,7 +40,7 @@ x_labels = [
 
 
 def all_scenes_plot():
-    fig = plt.figure(figsize=(40, 30))
+    fig = plt.figure(figsize=(40, 24))
     gs = gridspec.GridSpec(4, 4, figure=fig)
 
     axes = []

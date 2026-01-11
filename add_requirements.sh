@@ -41,7 +41,7 @@ fi
 # Copy script files to target directory
 echo "Copying script files to $TARGET_SCRIPTS_DIR"
 cp -n "$SCRIPT_DIR"/*.cs "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
-cp -n "$SCRIPT_DIR"/*.json "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
+cp -R -n "$SCRIPT_DIR/XRintTestCore" "$TARGET_SCRIPTS_DIR/" 2>/dev/null || true
 
 echo "Script files have been copied to $TARGET_SCRIPTS_DIR"
 

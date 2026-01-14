@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -12,10 +13,8 @@ scenes = [
     "EscapeProto",
     "EscapeRoom",
     "XRToolKitEssentials",
-    "XRToolKitEssentials",
-    "XRToolKitEssentials",
-    "XRToolKitEssentials",
-    "XRToolKitEssentials",
+    "VR-Room",
+    "EscapeGameVR",
     "Average"
 ]
 
@@ -33,23 +32,30 @@ x_labels = [
     "Scene 8",
     "Scene 9",
     "Scene 10",
-    "Scene 11",
-    "Scene 12",
     "Average"
 ]
 
 
 def all_scenes_plot():
     fig = plt.figure(figsize=(40, 24))
-    gs = gridspec.GridSpec(4, 4, figure=fig)
+
+    cols = 4
+    n_plots = len(scenes)
+    rows = math.ceil(n_plots / cols)
+
+    gs = gridspec.GridSpec(rows, cols * 2, figure=fig)
 
     axes = []
-    # First 12 subplots in 3x4 structure
-    for i in range(12):
-        axes.append(fig.add_subplot(gs[i // 4, i % 4]))
-    
-    # Last subplot centered in the new row
-    axes.append(fig.add_subplot(gs[3, 1:3]))
+    full_rows = n_plots // cols
+    extra = cols - n_plots % cols if n_plots % cols != 0 else 0
+
+    for i in range(n_plots):
+        r, c = divmod(i, cols)
+        if r < full_rows or extra == 0:
+            ax = fig.add_subplot(gs[r, 2 * c:2 * (c + 1)])
+        else:
+            ax = fig.add_subplot(gs[r, 2 * c + extra:2 * (c + 1) + extra])
+        axes.append(ax)
 
     for idx, target_scene in enumerate(scenes):
         if idx >= len(axes):
@@ -104,7 +110,7 @@ def all_scenes_plot():
     handles, legend_labels = ax.get_legend_handles_labels()
     fig.legend(handles, legend_labels, fontsize=22, loc='lower center', ncol=2)
 
-    plt.tight_layout(rect=[0, 0.08, 1, 1])
+    # plt.tight_layout(rect=[0, 0.08, 1, 1])
     plt.savefig(f'RQ3_efficiency.png', dpi=300, bbox_inches='tight')
     plt.show()
 
